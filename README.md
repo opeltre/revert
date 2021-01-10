@@ -5,7 +5,7 @@ Vascular model [2], accounting for blood action on CSF pressure:
 
 
 Anatomical model, accounting for circulation inside CSF space:
-![csf anatomical model](img/anatomicalModel.png)
+![csf anatomical model](img/anatomicalModel.jpg)
 
 Because CSF fluxes taken accross different route sections are 
 desynchronised, it is important to account for pressure gradients 
