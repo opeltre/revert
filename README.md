@@ -1,6 +1,6 @@
 # Blood and Cerebrospinal Fluid Dynamics
 
-Vascular model [1], accounting for blood action on CSF pressure:
+Vascular model [2], accounting for blood action on CSF pressure:
 ![csf vascular model](img/vascularModel.svg)
 
 
@@ -14,7 +14,12 @@ putting the fluid in motion.
 
 ## References 
 
-[1] Czosnyka M, Piechnik S, Richards HK, Kirkpatrick P, 
+[1] Marmarou A. 
+_A theoretical model and experimental evaluation of  the 
+cerebrospinal  fluid  system._
+Thesis, Drexel University, Philadelphia, PA, 1973
+
+[2] Czosnyka M, Piechnik S, Richards HK, Kirkpatrick P, 
 Smielewski P, Pickard JD. 
 _Contribution of mathematical modelling to the bedside tests of
  cerebrovascular autoregulation._ 
