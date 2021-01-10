@@ -1,0 +1,20 @@
+key,type,nom,name
+aqueduc             , CSF     , aqueduc                                  , aqueduct
+citer-prep          , CSF     , citerne prépontique                      , prepontic cistern
+v4                  , CSF     , foramen de Magendie                      , foramen of Magendie
+c2_c3               , CSF     , vertèbres cervicales                     , cervical vertebras 
+cid_cervi           , A       , carotide intérieure droite cervicale     , right cervical internal carotid 
+cid_cereb           , A       , carotide intérieure droite cérébrale     , right cerebral internal carotid
+cig_cervi           , A       , carotide intérieure gauche cervicale     , left cervical internal carotid
+cig_cereb           , A       , carotide intérieure gauche cérébrale     , left cerebral internal carotid
+tb                  , A       , tronc basilaire                          , basilar artery
+verteb-d            , A       , vertébrale droite                        , right vertebral artery
+verteb-g            , A       , vertébrale gauche                        , left vertebral artery
+jugul-d             , V       , jugulaire droite                         , right jugular vein
+jugul-g             , V       , jugulaire gauche                         , left jugular vein
+sinus-s             , V       , sinus sagittal                           , sagittal sinus
+coro_sinus_s        , V       , sinus sagittal en coronal                , sagittal sinus (coronal)
+sinus-d             , V       , sinus droit                              , right sinus
+coro_sinus_d        , V       , sinus droit en coronal                   , right sinus (coronal)
+coro_sinus_lat_d    , V       , sinus latéral droit en coronal           , lateral right sinus (coronal)
+coro_sinus_lat_g    , V       , sinus latéral gauche en coronal          , lateral left sinus (coronal)
