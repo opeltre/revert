@@ -7,12 +7,15 @@ class Exam :
     def __init__(self, dirname):
         self.path = dirname
 
-    def get(self, *patterns):
+    def getAll(self, *patterns):
         fluxes = read.Exam(self.path, *patterns)
         fluxes.map_(
             lambda v, k: np.array(v) if type(v) == list else v
         )
         return fluxes
+
+    def get(self, key): 
+        return read.Exam(self.path, key)[key]
 
     def blood_volume_change(self, level="cervical"):
         if re.search(r'cervi', level) != None:

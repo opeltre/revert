@@ -1,4 +1,11 @@
 class Dict (dict): 
+    def fmap(self, f):
+        return Dict({k: f(v) for v , k in self})
+    
+    def fmap_(self, f):
+        for v, k in self:
+            self[k] = f(v)
+        return self
 
     def map(self, f): 
         return Dict({k: f(v, k) for v, k in self})
@@ -24,11 +31,21 @@ class Dict (dict):
             self.pop(k)
         return self
 
-    def reduce(self, f, acc): 
+    def pluck(self, *keys): 
+        return Dict({k : self[k] for k in keys})
+   
+    def reduce(self, f, acc=None):
+        if acc == None:
+             return Dict(self.copy()).reduce_(f)
+        return self.reduce_(f, acc)
+
+    def reduce_(self, f, acc=None):
+        if acc == None:
+            (k, acc) = self.popitem()
         for v, k in self:
             acc = f(acc, v, k)
         return acc
-
+        
     def __iter__(self): 
         return ((self[k], k) for k in super().__iter__())
 
