@@ -23,3 +23,13 @@ def translate(i, t):
     return torch.cat((t[:i].flip(0), t.roll(i)[i:]))\
         if i >= 0\
         else torch.cat((t.roll(i)[:i], t[i:].flip(0)))
+
+
+class Heat(Filter): 
+
+    def __init__(self, radius, fs=1): 
+        diam = 2 * radius
+        n = math.floor(2 * fs * diam + 1)
+        x = torch.linspace(- diam, diam, n)
+        gx = torch.exp(- x**2 / (2 * radius ** 2))
+        super().__init__(gx / gx.sum(), 'spatial')
