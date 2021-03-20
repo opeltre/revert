@@ -1,9 +1,10 @@
-[revert]: /
+[revert]: http://revertproject.org 
 
 # Blood and Cerebrospinal Fluid Dynamics
 
 This repository contains code for analysing flux and pressure measures 
 acquired for the [revert][revert] project.
+
 Intracranial pressure (ICP) shows a pulsatile dynamic due
 to cardiac excitations, inducing periodic brain expansions 
 inside an inextensible cranial bone. Cerebrospinal fluid (CSF), 
@@ -12,6 +13,16 @@ to the softer spinal sac through the occipital
 foramen and cervical vertebras 
 to accomodate for blood volume changes. 
 
+Normal pressure hydrocephalus (NPH) is a CSF formation and absorption 
+disorder that causes gait and other cognitive impairments in the 
+elderly population. Believed to be largely misdiagnosed as Alzheimer, 
+NPH is a _reversible dementia_ as symptoms can sometimes
+quickly disappear by shunt drainage. Improving practice in NPH diagnosis 
+and gaining finer characterisations of CSF disorders is the goal of  
+revert. 
+
+![brain PCMRI and infusion exams](img/infusionPCMRI.png)
+
 ## Flux 
 
 Blood and CSF fluxes over a typical cardiac cycle (CC) 
@@ -19,6 +30,8 @@ are acquired during a PCMRI examination, in which fluid velocities
 are integrated accross chosen sections of interest, 
 such as large cerebral veins and arteries (blood),
 the inter-ventricular aqueduct and cervical vertebras (CSF). 
+
+![intracranial volume change](img/volumeChange.png)
 
 
 ## Images 
