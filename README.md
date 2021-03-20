@@ -44,7 +44,7 @@ Averaging over multiple segments will yield a typical pulse
 whose morphological features should contain relevant information 
 on the underlying CSF dynamics. 
 
-![typical pulse](img/icpPulse.png){ width=50% }
+![typical pulse](img/icpPulse.png){: style="width:200px;" }
 
 __N.B.__ The averaging process tends to flatten secondary 
 peaks and troughs, due to their temporal offsets accross segments. 
