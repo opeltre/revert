@@ -1,5 +1,6 @@
 import icp.loader as hdf5
 import torch
+import numpy as np
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -15,8 +16,9 @@ def show():
     plt.show()
 
 def jet3(x, **kwargs):
-    dx = torch.diff(x)
-    d2x = torch.diff(dx)
+    x = np.array(x)
+    dx = np.diff(x)
+    d2x = np.diff(dx)
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.plot(x[:-2], dx[:-1], d2x)
+    ax.plot(x[:-2], dx[:-1], d2x, **kwargs)
