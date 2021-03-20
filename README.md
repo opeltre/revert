@@ -33,6 +33,23 @@ the inter-ventricular aqueduct and cervical vertebras (CSF).
 
 ![intracranial volume change](img/volumeChange.png)
 
+## ICP 
+
+ICP is measured over time by lumbar puncture during infusion tests. 
+We use heat kernels to denoise the signal and perform pulse segmentation. 
+
+![intracranial pressure segmentation](img/icpSegmentation.png)
+
+Averaging over multiple segments will yield a typical pulse 
+whose morphological features should contain relevant information 
+on the underlying CSF dynamics. 
+
+![typical pulse](img/icpPulse.png)
+
+__N.B.__ The averaging process tends to flatten secondary 
+peaks and troughs, due to their temporal offsets accross segments. 
+Allowing for time reparameterisations should hence improve the typical 
+pulse shape extraction. 
 
 ## Images 
 
