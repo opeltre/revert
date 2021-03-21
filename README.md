@@ -21,7 +21,8 @@ quickly disappear by shunt drainage. Improving practice in NPH diagnosis
 and gaining finer characterisations of CSF disorders is the goal of  
 revert. 
 
-![brain PCMRI and infusion exams](img/infusionPCMRI.png)
+<img alt="brain PCMRI and infusion exams" height="150px"
+    src="img/infusionPCMRI.png"> 
 
 ## Flux 
 
@@ -31,20 +32,22 @@ are integrated accross chosen sections of interest,
 such as large cerebral veins and arteries (blood),
 the inter-ventricular aqueduct and cervical vertebras (CSF). 
 
-![intracranial volume change](img/volumeChange.png)
+<img alt="intracranial volume change" height="150px"
+    src="img/volumeChange.png">
 
 ## ICP 
 
 ICP is measured over time by lumbar puncture during infusion tests. 
 We use heat kernels to denoise the signal and perform pulse segmentation. 
 
-![intracranial pressure segmentation](img/icpSegmentation.png)
+<img alt="intracranial pressure segmentation" height="150px"
+    src="img/icpSegmentation.png">
 
 Averaging over multiple segments will yield a typical pulse 
 whose morphological features should contain relevant information 
 on the underlying CSF dynamics. 
 
-<img alt="typical pulse" width="150px" 
+<img alt="typical pulse" width="200px" 
     src="img/icpPulse.png">
 
 __N.B.__ The averaging process tends to flatten secondary 
