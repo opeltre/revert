@@ -1,21 +1,21 @@
-import read
-import numpy as np
+import torch
 
-from dict import Dict
+from .read import Exam 
+from .dict import Dict
 
-class Exam :
+class File :
     def __init__(self, dirname):
         self.path = dirname
 
     def getAll(self, *patterns):
-        fluxes = read.Exam(self.path, *patterns)
+        fluxes = Exam(self.path, *patterns)
         fluxes.map_(
             lambda v, k: np.array(v) if type(v) == list else v
         )
         return fluxes
 
     def get(self, key): 
-        return read.Exam(self.path, key)[key]
+        return Exam(self.path, key)[key]
 
     def blood_volume_change(self, level="cervical"):
         if re.search(r'cervi', level) != None:

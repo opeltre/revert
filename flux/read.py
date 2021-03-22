@@ -3,7 +3,7 @@ import csv
 from os import path
 from glob import glob
 
-from dict import Dict
+from .dict import Dict
 
 """
     This module provides basic utilities to parse raw exam directories. 
@@ -38,7 +38,7 @@ from dict import Dict
 """
 
 Levels = Dict({})
-with open("levels.csv") as f:
+with open(path.join(path.dirname(__file__), "levels.csv")) as f:
     for level in csv.DictReader(f):
         d = Dict(level)
         d.map_(lambda v, k: re.search(r'\s*(.*?)\s*$', v).group(1))
@@ -52,14 +52,16 @@ def Exam (dirname, *patterns):
         Example:
         --------
         >>> exam = Exam('I', 'sinus*', 'aqueduc')
-    """ 
+    """
+    if dirname[0] != "/":
+        dirname = path.join(path.dirname(__file__), dirname)
     patterns = ['*'] if not len(patterns) else patterns
     files = []
     fluxes = {}
     for p in patterns:
         files += glob(f'{dirname}/{p}.txt')
     for f in files:
-        level = re.search(r'/(.*)\.txt$', f).group(1)
+        level = re.search(r'/([a-z|0-9|_|-]*)\.txt$', f).group(1)
         fluxes[level] = Flux(f)
     return Dict(fluxes)
 
@@ -94,7 +96,7 @@ def Flux (name):
                 env = 'volume'
             elif re.search('Axe des Temps', line):
                 env = 'time'
-    
-    key = re.search(r'/(.*)\.txt$', name).group(1)
-    curves.update(Levels[key])
+
+    #key = re.search(r'/([a-z|_|-|0-9]*)\.txt$', name).group(1)
+    #curves.update(Levels[key])
     return curves

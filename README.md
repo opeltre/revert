@@ -38,6 +38,10 @@ the inter-ventricular aqueduct and cervical vertebras (CSF).
 ## ICP 
 
 ICP is measured over time by lumbar puncture during infusion tests. 
+The acquisition lasts ~30 minutes so that the resulting signal contains 
+thousands of cardiac cycles, first recorded at baseline ICP and during
+a constant-rate injection of saline water in CSF space. 
+
 We use heat kernels to denoise the signal and perform pulse segmentation. 
 
 <img alt="intracranial pressure segmentation" height="200px"
