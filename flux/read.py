@@ -54,7 +54,7 @@ def Exam (dirname, *patterns):
         >>> exam = Exam('I', 'sinus*', 'aqueduc')
     """
     if dirname[0] != "/":
-        dirname = path.join(path.dirname(__file__), dirname)
+        dirname = path.join(path.dirname(__file__), 'data', dirname)
     patterns = ['*'] if not len(patterns) else patterns
     files = []
     fluxes = {}
