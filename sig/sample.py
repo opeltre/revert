@@ -24,3 +24,6 @@ def cubic(x0, x1, v0, v1):
     a2 = (a + v1 - v0) / 2. 
     a3 = - a / 3  
     return torch.tensor([x0, v0, a2, a3])
+
+def repeat(n): 
+    return lambda t: torch.cat([t] * n)

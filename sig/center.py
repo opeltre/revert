@@ -41,4 +41,3 @@ class Center (Transform):
         lower = torch.sum(torch.stack(lower), dim=[0])
         return [torch.cat([q[j], torch.tensor([0.])]) for j in range(k)]\
             + [torch.cat([lower, torch.tensor([1. / fact(k)])])]
-

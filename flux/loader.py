@@ -1,4 +1,6 @@
 import torch
+import re
+import sig
 
 from .read import Exam 
 from .dict import Dict
@@ -9,28 +11,54 @@ class File :
 
     def getAll(self, *patterns):
         fluxes = Exam(self.path, *patterns)
-        fluxes.map_(
-            lambda v, k: np.array(v) if type(v) == list else v
-        )
+        fluxes.map_(lambda fk, k: fk.map_(
+            lambda v, _:torch.tensor(v) if type(v) == list else v
+        ))
         return fluxes
 
     def get(self, key): 
         return Exam(self.path, key)[key]
 
-    def blood_volume_change(self, level="cervical"):
+    def volumes(self, level="cervical", N=None):
+        
+        def vol(*patterns):
+            return self.getAll(*patterns)\
+                .fmap(lambda f: f.volume[:-1])\
+                .fmap(lambda t: sig.resample(t, N) if N else t)\
+                .reduce(lambda v1, v2, _: v1 + v2)
+        
         if re.search(r'cervi', level) != None:
-            art = self.get('ci*_cervi', 'verteb*')
-            ven = self.get('jugul*')
+            art = vol('ci*_cervi', 'verteb*')
+            ven = - vol('jugul*')
         else: 
-            art = self.get('ci*_cereb', 'tb')
-            ven = self.get('sinus-d', 'sinus-s')
-        return art.volume - ven.volume
+            art = vol('ci*_cereb', 'tb')
+            ven = vol('sinus-d', 'sinus-s')
+        csf = - vol('c2_c3')
 
+        V = Dict({"art": art, "ven": ven, "csf": csf})
 
-    def volume_change(self, level="cervical"):
-        csf = self.get('c2_c3')
-        blood = self.blood_volume_change(level)
-        return blood - csf.volume
+        alpha = V.art[-1] / V.ven[-1] 
+        V.blood = V.art - alpha * V.ven
+        V.ic = V.blood - V.csf
+        return V
+
+    def fluxes(self, level="cervical", N=None):
+        
+        def debit (*patterns): 
+            return self.getAll(*patterns)\
+                .fmap(lambda f: f.debit)\
+                .fmap(lambda t: sig.resample(t, N) if N else t)\
+                .reduce(lambda v1, v2, _: v1 + v2)
+            
+        if re.search(r'cervi', level) != None:
+            art = debit('ci*_cervi', 'verteb*')
+            ven = - debit('jugul*')
+        else: 
+            art = debit('ci*_cereb', 'tb')
+            ven = debit('sinus-d', 'sinus-s')
+        csf = - debit('c2_c3')
+
+        return Dict({"art": art, "ven": ven, "csf": csf})
 
 
 class Flux (Dict):
