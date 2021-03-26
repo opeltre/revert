@@ -1,5 +1,5 @@
-*/images
-*/spreadsheet
-*/Amplitude
+data/*/images
+data/*/spreadsheet
+data/*/Amplitude
 .ipynb_checkpoints
 *.xls
