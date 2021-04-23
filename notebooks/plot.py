@@ -36,6 +36,11 @@ def ax3(fig=None):
         fig = plt.figure()
     return fig.add_subplot(111, projection='3d')
 
+def ax(fig=None):
+    if not fig:
+        fig = plt.figure()
+    return fig.add_subplot()
+
 def show():
     plt.show()
 
