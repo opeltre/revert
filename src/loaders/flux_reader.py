@@ -1,9 +1,11 @@
 import re
 import csv
-from os import path
+import os
 from glob import glob
 
 from .dict import Dict
+
+dataset_path = '../../datasets/flux/_db'
 
 """
     This module provides basic utilities to parse raw exam directories. 
@@ -37,8 +39,14 @@ from .dict import Dict
     exam : str -> { level > flux }
 """
 
+def path (d="_db"): 
+    return os.path.join(
+            os.path.dirname(__file__), 
+            dataset_path, 
+            d)
+
 Levels = Dict({})
-with open(path.join(path.dirname(__file__), "levels.csv")) as f:
+with open(path("../levels.csv")) as f:
     for level in csv.DictReader(f):
         d = Dict(level)
         d.map_(lambda v, k: re.search(r'\s*(.*?)\s*$', v).group(1))
@@ -54,7 +62,7 @@ def Exam (dirname, *patterns):
         >>> exam = Exam('I', 'sinus*', 'aqueduc')
     """
     if dirname[0] != "/":
-        dirname = path.join(path.dirname(__file__), 'data', dirname)
+        dirname = path(dirname)
     patterns = ['*'] if not len(patterns) else patterns
     files = []
     fluxes = {}

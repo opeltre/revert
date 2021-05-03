@@ -2,18 +2,20 @@ import h5py
 import os
 import torch
 
+dataset_path = '../../datasets/icp/samples'
+
 def path (s=''): 
     return os.path.join(os.path.dirname(__file__), s)
 
-def ls (d='data'): 
+def ls (d=dataset_path):
     return os.listdir(path(d))
 
 class File (h5py.File): 
 
     def __init__(self, key): 
         if isinstance(key, int): 
-            key = ls('data')[key]
-        super().__init__(path(f'data/{key}'), 'r')
+            key = ls(dataset_path)[key]
+        super().__init__(path(f'{dataset_path}/{key}'), 'r')
 
     def __repr__(self): 
         def gstr(group): 
@@ -30,4 +32,3 @@ class File (h5py.File):
     def icp (self, N=200): 
         arr = self['waves']['icp'][0:N]
         return torch.tensor(arr)
-

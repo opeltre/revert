@@ -1,0 +1,13 @@
+_db/*
+!_db/d1
+!_db/d2
+!_db/d3
+_db/*/Amplitude
+_db/*/images
+_db/*/images
+_db/*/spreadsheet
+_crypt
+_amiens
+.ipynb_checkpoints
+*.xls
+

@@ -2,7 +2,7 @@ import torch
 import re
 import sig
 
-from .read import Exam 
+from .flux_reader import Exam 
 from .dict import Dict
 
 class File :
