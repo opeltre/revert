@@ -8,9 +8,9 @@
 This repository contains code for analysing flux and pressure measures 
 acquired for the [revert][revert] project.
 
-See the linked (private) repositories, containing specific data loaders
-- [infusion](http://github.com/opeltre/infusion)
-- [pcmri](http://github.com/opeltre/pcmri)
+See the linked (private) repositories containing specific data loaders: 
+- 📈[infusion](http://github.com/opeltre/infusion)
+- 📉[pcmri](http://github.com/opeltre/pcmri)
 
 
 # Blood and Cerebrospinal Fluid Dynamics
