@@ -1,46 +1,50 @@
 import torch
 import matplotlib.pyplot as plt
 
-from models import ND, ConvNet, BarlowTwins, cross_correlation
+from models     import ND, ConvNet, BarlowTwins, cross_correlation
+from infusion   import pulses
+
+import argparse, sys
 
 from torch.utils.tensorboard import SummaryWriter
 
-writer = SummaryWriter()
+#--- Dataset ---
+
+full = pulses.Tensor("full").pulses
+data = (full[:2500]
+            .reshape([2500, 2, -1, 128])
+            .transpose(0, 2)
+            .reshape([2, -1, 128]))
+
+data = pulses.shuffle(1, data)
+print(f"Number of pulse pairs: {data.shape[1]}")
 
 #--- Models ---
 
 layers = [[128, 1, 16],
-          [32,  8, 8],
+          [32,  16, 8],
           [8,   8, 8],
           [1,   8, 1]]
 
 model = ConvNet(layers)
+
 twins = BarlowTwins(model)
 
-x = torch.randn([1, 128])
-y = model(x)
+#--- Main --- 
 
-xs = torch.stack([x, x + 0.01 * torch.randn(x.shape)])
-ys = twins(xs)
+parser = argparse.ArgumentParser()
+parser.add_argument('--state', '-s', help="load state dict", type=str)
+parser.add_argument('--writer', '-w', help="tensorboard writer", type=str)
+args = parser.parse_args()
 
-def train (xs, lr=1e-2, br=1e-3): 
-    #--- Print loss before
-    ys = twins(xs)
-    loss = twins.loss(ys)
-    C  = cross_correlation(*ys)
-    print(f"Loss: {loss}")
-    print(f"Cross-correlation:\n {C}")
+# model state 
+if args.state: 
+    st = torch.load(args.state)
+    model.load_state_dict(st)
 
-    #--- Fit on xs 
-    twins.fit(xs, lr, br)
-    print(f"\n Fitting on {xs.shape[1]} samples... \n")
-
-    #--- Print loss after
-    ys   = twins(xs)
-    loss = twins.loss(ys)
-    C2 = cross_correlation(*ys)
-    print(f"Loss: {loss}")
-    print(f"Cross-correlation:\n {C2}")
+# writer name
+log_dir = args.writer if args.writer else None
+twins.writer = SummaryWriter(log_dir)
 
 #--- Synthetic pairs
 
@@ -60,6 +64,5 @@ def plot_pairs (xs):
     plt.show()
 
 if __name__ == "__main__":
-    xs = noisy_pairs()
-    train(xs)
-    plot_pairs(xs)
+    print(f'\ntwins:\n {twins}')
+    pass
