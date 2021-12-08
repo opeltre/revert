@@ -39,6 +39,7 @@ args = parser.parse_args()
 
 # model state 
 if args.state: 
+    print(f"Loading model state from '{args.state}'")
     st = torch.load(args.state)
     model.load_state_dict(st)
 
