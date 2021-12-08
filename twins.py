@@ -22,7 +22,7 @@ print(f"Number of pulse pairs: {data.shape[1]}")
 #--- Models ---
 
 layers = [[128, 1, 16],
-          [32,  16, 8],
+          [32,  8, 8],
           [8,   8, 8],
           [1,   8, 1]]
 
