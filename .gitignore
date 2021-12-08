@@ -2,6 +2,7 @@ dist
 bib
 GENCI
 
+runs
 __pycache
 */__pycache__
 */.ipynb_checkpoints

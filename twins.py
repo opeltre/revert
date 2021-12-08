@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 
 from models import ND, ConvNet, BarlowTwins, cross_correlation
 
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter()
+
 #--- Models ---
 
 layers = [[128, 1, 16],
@@ -18,14 +22,6 @@ y = model(x)
 
 xs = torch.stack([x, x + 0.01 * torch.randn(x.shape)])
 ys = twins(xs)
-
-#--- Synthetic pairs
-
-def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
-    ps = torch.randn([n_samples, 2, n_modes])
-    x  = ND.map(ps, 128)
-    xs = torch.stack([x, x + 0.25 * torch.randn(x.shape)])
-    return xs
 
 def train (xs, lr=1e-2, br=1e-3): 
     #--- Print loss before
@@ -45,6 +41,14 @@ def train (xs, lr=1e-2, br=1e-3):
     C2 = cross_correlation(*ys)
     print(f"Loss: {loss}")
     print(f"Cross-correlation:\n {C2}")
+
+#--- Synthetic pairs
+
+def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
+    ps = torch.randn([n_samples, 2, n_modes])
+    x  = ND.map(ps, 128)
+    xs = torch.stack([x, x + 0.25 * torch.randn(x.shape)])
+    return xs
 
 #--- Plot input pairs 
 
