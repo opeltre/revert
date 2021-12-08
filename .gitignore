@@ -2,6 +2,9 @@ dist
 bib
 GENCI
 
+*.pt
+*.state
+
 runs
 __pycache
 */__pycache__
