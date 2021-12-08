@@ -62,11 +62,11 @@ pulse shape extraction.
 ## Images 
 
 Vascular model [2], accounting for blood action on CSF pressure:  
-![csf vascular model](img/vascularModel.svg)
+<img alt='csf vascular model' width="200px" src='img/vascularModel.svg'>
 
 
 Anatomical model, accounting for circulation inside CSF space:  
-![csf anatomical model](img/anatomicalModel.jpg)
+<img alt='csf anatomical model' width="200px" src='img/anatomicalModel.jpg'>
 
 Because CSF fluxes taken accross different route sections are 
 desynchronised, it is important to account for pressure gradients 
