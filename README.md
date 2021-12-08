@@ -1,5 +1,8 @@
 [revert]: http://revertproject.org 
 
+<img alt="Reversible dementia" height="150px"
+    src="img/revert-logo.png"> 
+    
 # Blood and Cerebrospinal Fluid Dynamics
 
 This repository contains code for analysing flux and pressure measures 
@@ -21,7 +24,7 @@ quickly disappear by shunt drainage. Improving practice in NPH diagnosis
 and gaining finer characterisations of CSF disorders is the goal of  
 revert. 
 
-<img alt="brain PCMRI and infusion exams" height="200px"
+<img alt="brain PCMRI and infusion exams" height="300px"
     src="img/infusionPCMRI.png"> 
 
 ## Flux 
