@@ -2,11 +2,18 @@
 
 <img alt="Reversible dementia" height="150px"
     src="img/revert-logo.png"> 
-    
-# Blood and Cerebrospinal Fluid Dynamics
+
+# REVERT
 
 This repository contains code for analysing flux and pressure measures 
 acquired for the [revert][revert] project.
+
+See the linked (private) repositories, which contain specific data loaders
+- [infusion](http://github.com/opeltre/infusion)
+- [pcmri](http://github.com/opeltre/pcmri)
+
+
+# Blood and Cerebrospinal Fluid Dynamics
 
 Intracranial pressure (ICP) shows a pulsatile dynamic due
 to cardiac excitations, inducing periodic brain expansions 
