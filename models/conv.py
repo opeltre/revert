@@ -14,11 +14,12 @@ class Conv1d(nn.Conv1d):
 
 class ConvNet(nn.Module):
     
-    def __init__(self, layers, activation=tanh):
+    def __init__(self, layers, activation=tanh, dropout=0.1):
         super().__init__()
         self.layers = layers
         self.depth  = len(layers)
         self.activation = activation
+        self.dropout = nn.Dropout(p=dropout)
         for i, ls in enumerate(zip(layers[:-1], layers[1:])):
             l0, l1 = ls
             size0, c0, w0 = l0
@@ -34,10 +35,11 @@ class ConvNet(nn.Module):
                  else x.view([n_b, 1, -1]))
         xs  = [x0]
         a   = self.activation
+        d   = self.dropout
         for i in range(self.depth - 1):
             conv = getattr(self, f'conv{i}')
             pool = getattr(self, f'pool{i}')
-            xs += [pool(a(conv(xs[-1])))]
+            xs += [pool(a(d(conv(xs[-1]))))]
         y = xs[-1]
         return (y if y.shape[-1] > 1
                   else y.reshape([n_b, -1]))
