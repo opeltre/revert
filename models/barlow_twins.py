@@ -7,6 +7,7 @@ def norm2 (t, dim=None):
 
 def cross_correlation (ya, yb):
     """ Cross-correlation of N_batch x N """
+    ya, yb = ya - ya.mean([0]), yb - yb.mean([0])
     yab = ya[:,:,None] @ yb[:,None,:]
     return yab.sum(dim=[0]) / (norm2(ya, [0]) * norm2(yb, [0]))
 
@@ -30,9 +31,17 @@ class BarlowTwins (nn.Module):
         n_out = y.shape[-1]
         C = cross_correlation(*y) 
         I = torch.eye(n_out)
-        lbda      = self.offdiag
-        loss_mask = lbda * torch.ones(C.shape) + (1 - lbda) * I
-        return torch.sum(((C - I) * loss_mask) ** 2) / (2 * n_out ** 2) 
+        w = self.offdiag
+        loss_mask = w * torch.ones(C.shape) + (1 - w) * I
+        return torch.sum(((C - I) * loss_mask) ** 2) / (2 * n_out)
+
+    def cross_corr (self, x):
+        """ Cross correlation matrix of twin outputs. l"""
+        return cross_correlation(*self(x))
+
+    def loss_on (self, x):
+        """ Barlow twin loss on input """
+        return self.loss(self(x))
 
     def fit (self, x, lr=1e-2, br=1e-3, n_batch=128, w="Loss/fit"):
         """ Fit on a 2 x N_samples x N tensor. """
