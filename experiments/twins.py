@@ -45,7 +45,8 @@ if args.state:
 
 # writer name
 log_dir = args.writer if args.writer else None
-twins.writer = SummaryWriter(log_dir)
+if log_dir:
+    twins.writer = SummaryWriter(log_dir)
 
 #--- Synthetic pairs
 
