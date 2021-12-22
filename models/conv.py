@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from torch.nn.functional import relu
+from torch.nn.functional import relu, sigmoid
 
 class Conv1d(nn.Conv1d):
     """ Periodic Convolution. """
@@ -13,10 +13,11 @@ class Conv1d(nn.Conv1d):
 
 class ConvNet(nn.Module):
     
-    def __init__(self, layers):
+    def __init__(self, layers, activation=sigmoid):
         super().__init__()
         self.layers = layers
         self.depth  = len(layers)
+        self.activation = activation
         for i, ls in enumerate(zip(layers[:-1], layers[1:])):
             l0, l1 = ls
             size0, c0, w0 = l0
@@ -31,10 +32,11 @@ class ConvNet(nn.Module):
         x0  = (x if x.dim() == 3
                  else x.view([n_b, 1, -1]))
         xs  = [x0]
+        a   = self.activation
         for i in range(self.depth - 1):
             conv = getattr(self, f'conv{i}')
             pool = getattr(self, f'pool{i}')
-            xs += [pool(relu(conv(xs[-1])))]
+            xs += [pool(a(conv(xs[-1])))]
         y = xs[-1]
         return (y if y.shape[-1] > 1
                   else y.reshape([n_b, -1]))
