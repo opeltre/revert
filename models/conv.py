@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-from torch.nn.functional import relu, sigmoid
+from torch.nn.functional import relu
+from torch import sigmoid
 
 class Conv1d(nn.Conv1d):
     """ Periodic Convolution. """
