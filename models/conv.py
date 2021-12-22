@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from torch.nn.functional import relu
-from torch import sigmoid
+from torch import sigmoid, tanh
 
 class Conv1d(nn.Conv1d):
     """ Periodic Convolution. """
@@ -14,7 +14,7 @@ class Conv1d(nn.Conv1d):
 
 class ConvNet(nn.Module):
     
-    def __init__(self, layers, activation=sigmoid):
+    def __init__(self, layers, activation=tanh):
         super().__init__()
         self.layers = layers
         self.depth  = len(layers)
