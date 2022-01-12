@@ -3,8 +3,16 @@ import matplotlib.pyplot as plt
 
 from models     import ND, ConvNet, BarlowTwins, cross_correlation
 from infusion   import pulses
+from transforms import noise, vshift, scale
+
+def shuffle (dim, tensor):
+    sigma = torch.randperm(tensor.shape[dim], device=tensor.device)
+    return tensor.index_select(dim, sigma)
 
 import argparse, sys
+
+from torch.optim import SGD, Adam
+from torch.optim.lr_scheduler import ExponentialLR
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -12,25 +20,28 @@ from torch.utils.tensorboard import SummaryWriter
 
 full = pulses.Tensor("full").pulses
 data = (full[:2500]
-            .reshape([2500, 2, -1, 128])
-            .transpose(0, 2)
-            .reshape([2, -1, 128]))
+            .view([2500, -1, 2, 128])
+            .view([-1, 2, 128])
+            .transpose(0, 1))
 
-data = pulses.shuffle(1, data)
+data = shuffle(1, data)
 print(f"Number of pulse pairs: {data.shape[1]}")
 
 #--- Models ---
 
-layers = [[128, 1, 16],
-          [32,  8, 8],
-          [8,   8, 8],
-          [1,   8, 1]]
+layers = [[128, 1,   8],
+          [16,  8,   8],
+          [8,   16,  8],
+          [1,   32,  1]]
 
-model = ConvNet(layers)
+model = ConvNet(layers, dropout=0.0)
 
 twins = BarlowTwins(model)
 
-#--- Main --- 
+
+#===== State dict / logdir as CLI arguments ===== 
+#
+#   python twins.py -s "model.state" -w "runs/twins-xx"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--state', '-s', help="load state dict", type=str)
@@ -45,10 +56,103 @@ if args.state:
 
 # writer name
 log_dir = args.writer if args.writer else None
-if log_dir:
-    twins.writer = SummaryWriter(log_dir)
+if log_dir: twins.writer = SummaryWriter(log_dir)
 
-#--- Synthetic pairs
+#==================================================
+
+
+#--- Main ---
+
+def main (epochs=50, n_batch=128, lr=0.001, gamma=0.9):
+    print(log_dir)
+    
+    lr      = (lr, lr) if isinstance(lr, float) else lr
+    gamma   = (gamma, gamma) if isinstance(gamma, float) else gamma
+    epochs  = (epochs, epochs) if isinstance(epochs, int) else epochs 
+    
+    transforms = [noise(0.1), 
+                  vshift(1), 
+                  scale(0.4), 
+                  noise(0.05) @ vshift(1) @ scale(0.2)] 
+
+    xs1 = pretraining(*transforms, n_it=3750).cuda()
+    xs2 = training().cuda()
+    twins.cuda()
+    
+    #--- synthetic pairs ---
+    """
+    optim1 = Adam(twins.parameters(), lr=lr[0])
+    lr1    = ExponentialLR(optim1, gamma=gamma[0])
+    twins.optimize(xs1, optim1, lr1, epochs=epochs[0], w="Loss/pretrain")
+    del optim1, lr1
+    """
+    
+    in1 = xs1.transpose(0, 1).view([2, -1, 128])
+    ys1 = twins(shuffle(1, in1)[:,:2500])
+    C1 = cross_correlation(*ys1)
+    twins.writer.add_image("Cross correlation/pretrain", (1 + C1) / 2, dataformats="HW")
+    del xs1, ys1, C1
+
+    #--- real pairs ---
+    optim2  = Adam(twins.parameters(), lr=lr[1])
+    lr2     = ExponentialLR(optim2, gamma=gamma[1])
+    twins.optimize(xs2, optim2, lr2, epochs=epochs[1], w="Loss/train")
+    del optim2, lr2
+
+    ys2 = twins(xs2.transpose(0, 1).view([2, -1, 128]))
+    C2 = cross_correlation(*ys2)
+    twins.writer.add_image("Cross correlation", (1 + C2) / 2, dataformats="HW")
+    del xs2, ys2, C2
+
+
+#--- Batch --- 
+
+def batch (n_batch, xs):
+    n_it = xs.shape[1] // n_batch
+    return (xs[:,: n_it * n_batch]
+            .view([2, n_it, n_batch, 128])
+            .transpose(0, 1))
+
+#--- Augmented pairs ---
+
+def pretraining (*transforms, n_batch=128, n_it=1250):
+    
+    x  = shuffle(0, data.view([-1, 128]))[:n_it * n_batch] 
+    xs = torch.cat([t.pair(x) for t in transforms], 1)
+    return batch(n_batch, xs)
+
+#--- Real pairs --- 
+
+def training (n_batch=128): 
+    return batch(n_batch, data)
+
+
+#=== Max activating ===
+
+from math import ceil 
+
+plt.style.use('seaborn')
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+def argmax_figs (x, P=6):
+
+    y = twins.model(x).T
+    val, ids = torch.sort(y, descending=True, dim=1)
+
+    w, h = 4, ceil(y.shape[0] // 4)
+
+    fig = plt.figure(figsize=((w + 1)*2, h + 2))
+    for j, idj in enumerate(ids[:,:P]):
+        xmax = x.index_select(0, idj)
+        ax = plt.subplot(h, w, j + 1)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        plt.plot(xmax.T, color=colors[j % len(colors)])
+
+    return fig
+    
+
+#--- Synthetic pairs --- 
 
 def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
     ps = torch.randn([n_samples, 2, n_modes])
@@ -56,13 +160,13 @@ def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
     xs = torch.stack([x, x + 0.25 * torch.randn(x.shape)])
     return xs
 
-#--- Plot input pairs 
+#--- Plot input pairs ---
 
-def plot_pairs (xs):
+def plot_pairs (xs, n=5):
     colors = ["#da3", "#bac", "#8ac", "#32a", "#2b6"]
-    for i in range(5):
-        plt.plot(xs[0,i], color=colors[i], linewidth=1)
-        plt.plot(xs[1,i], color=colors[i], linestyle="dotted", linewidth=1)
+    for i in range(n):
+        plt.plot(xs[0,i], color=colors[i % len(colors)], linewidth=1)
+        plt.plot(xs[1,i], color=colors[i % len(colors)], linestyle="dotted", linewidth=1)
     plt.show()
 
 if __name__ == "__main__":

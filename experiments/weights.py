@@ -1,15 +1,21 @@
-from twins import model
+from twins import model, data
+
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from matplotlib import pyplot as plt
 
-st = torch.load("trained.state")
+st = torch.load("st/model")
 model.load_state_dict(st)
 
-w = model.conv0.weight.detach()
+def plot_weights (i): 
 
-for wi in w:
-    plt.plot(wi.view([-1]))
+    layer = getattr(model, f'conv{i}')
+    w = layer.weight.detach()
+    b = layer.bias.detach()
+
+    for wi, bi in zip(w, b):
+        print(bi)
+        plt.plot(bi + wi.T)
 
 plt.show()

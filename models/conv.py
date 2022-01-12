@@ -14,7 +14,7 @@ class Conv1d(nn.Conv1d):
 
 class ConvNet(nn.Module):
     
-    def __init__(self, layers, activation=tanh, dropout=0.1):
+    def __init__(self, layers, activation=tanh, dropout=0.0):
         super().__init__()
         self.layers = layers
         self.depth  = len(layers)

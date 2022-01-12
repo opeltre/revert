@@ -30,9 +30,9 @@ class BarlowTwins (nn.Module):
         """ Return Barlow twin loss of N_batch x N output. """
         n_out = y.shape[-1]
         C = cross_correlation(*y) 
-        I = torch.eye(n_out)
+        I = torch.eye(n_out, device=C.device)
         w = self.offdiag
-        loss_mask = w * torch.ones(C.shape) + (1 - w) * I
+        loss_mask = w + (1 - w) * I
         return torch.sum(((C - I) * loss_mask) ** 2) / (2 * n_out)
 
     def cross_corr (self, x):
@@ -41,7 +41,22 @@ class BarlowTwins (nn.Module):
 
     def loss_on (self, x):
         """ Barlow twin loss on input """
-        return self.loss(self(x))
+        return self.loss(self.forward(x))
+    
+    def optimize (self, xs, optimizer, scheduler=None, epochs=1, w=None):
+        """ Fit on a N_it x 2 x N_batch x N tensor. """
+        N_it = xs.shape[0]
+        for e in range(epochs):
+            for nit, x in enumerate(xs): 
+                optimizer.zero_grad()
+                loss = self.loss_on(x)
+                loss.backward()
+                optimizer.step()
+                if w:
+                    self.write(w, loss, nit + e * N_it) 
+            if scheduler:
+                scheduler.step()
+        return self
 
     def fit (self, x, lr=1e-2, br=1e-3, n_batch=128, w="Loss/fit"):
         """ Fit on a 2 x N_samples x N tensor. """
@@ -56,7 +71,7 @@ class BarlowTwins (nn.Module):
             with torch.no_grad(): 
                 for p in self.parameters(): 
                     p -= p.grad * lr
-                    p -= br * torch.randn(p.shape)
+                    p -= br * torch.randn(p.shape, device=p.device)
                 self.zero_grad()
         return self
 
