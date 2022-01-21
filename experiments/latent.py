@@ -1,4 +1,5 @@
 import torch
+import matplotlib
 
 from models     import tsne, pca, mdse
 from infusion   import pulses
@@ -6,23 +7,13 @@ from matplotlib import pyplot as plt
 
 from twins import model
 
-st = torch.load("st/model")
+st = torch.load("st/out64/mon3")
 model.load_state_dict(st)
 
 colors = ['#d3b', '#f35', '#c82', '#fb2',\
           '#5a4', '#5aa', '#38d', '#a2d']
 
-
-#--- Load pulses from N patients 
-
-N = 6 
-full = pulses.Tensor("full")
-ids  = torch.randint(full.pulses.shape[0], [N])
-P    = full.pulses.index_select(0, ids)
-
-#--- Model output
-
-y = model(P.reshape([-1, 128]))
+cmap = matplotlib.cm.get_cmap('viridis')
 
 #--- Sort patient pulses by barycenter distance 
 
@@ -32,8 +23,6 @@ def sort (y):
     i.sort(key=lambda j: d[j])
     y = y.index_select(0, torch.tensor(i))
     return y
-
-print(y.shape)
 
 #--- Scatter plots
 
@@ -54,13 +43,31 @@ def plot3d (y, c=None, title="Scatter 3d"):
 
 #--- Reduce output
 
-def main (): 
+def main (N=6): 
+
+    #--- Load pulses from N patients 
+
+    full = pulses.Tensor("full")
+    ids  = torch.randint(full.pulses.shape[0], [N])
+    P    = full.pulses.index_select(0, ids)
+
+    #--- Plot pulses 
+
+    for i, Pi in enumerate(P):
+        plt.subplot(3, 2, i+1)
+        plt.plot(Pi[:24].T, color=cmap(i / (N - 1)))
+    plt.show()
+
+    #--- Model output
+
+    y = model(P.reshape([-1, 128]))
 
     z = tsne(y, k=2, p=10, N=2000)
     p = pca(y, k=2)
     #m = mdse(y, k=2, e=1e-3)
 
     color = (torch.linspace(0, N - 1e-4, z.shape[0]) // 1).numpy()
+    print(color.reshape([N, 128]))
 
     plot2d(p, c=color, title="PCA")
     plot2d(z, c=color, title="TSNE")
@@ -69,6 +76,7 @@ def main ():
     #z3 = tsne(y, k=3, p=10, N=2000)
 
     #plot3d(z3, c=color, title="TSNE")
+
 
 #--- Pulse plots 
 

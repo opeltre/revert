@@ -14,3 +14,7 @@ __pycache
 **/__pycache__
 
 experiments/img
+experiments/_*
+experiments/st
+
+build
