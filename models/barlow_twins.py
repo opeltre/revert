@@ -13,12 +13,12 @@ def cross_correlation (ya, yb):
 
 class BarlowTwins (nn.Module):
 
-    def __init__(self, model, offdiag=0.5):
+    def __init__(self, model, diag=2):
         """ Create twins from a model. """
         super().__init__()
-        self.model   = model
-        self.offdiag = offdiag 
-        self.writer  = False
+        self.model  = model
+        self.diag   = diag 
+        self.writer = False
 
     def forward (self, x):
         """ Apply twins to 2 x N_batch x N tensor. """
@@ -31,9 +31,9 @@ class BarlowTwins (nn.Module):
         n_out = y.shape[-1]
         C = cross_correlation(*y) 
         I = torch.eye(n_out, device=C.device)
-        w = self.offdiag
-        loss_mask = w + (1 - w) * I
-        return torch.sum(((C - I) * loss_mask) ** 2) / (2 * n_out)
+        w = self.diag
+        loss_mask = 1 + (w - 1) * I
+        return torch.sum(((C - I) * loss_mask) ** 2) / (n_out ** 2)
 
     def cross_corr (self, x):
         """ Cross correlation matrix of twin outputs. l"""
@@ -53,7 +53,7 @@ class BarlowTwins (nn.Module):
                 loss.backward()
                 optimizer.step()
                 if w:
-                    self.write(w, loss, nit + e * N_it) 
+                    self.write(w, loss.detach(), nit + e * N_it) 
             if scheduler:
                 scheduler.step()
         return self

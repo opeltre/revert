@@ -14,18 +14,19 @@ class Conv1d(nn.Conv1d):
 
 class ConvNet(nn.Module):
     
-    def __init__(self, layers, activation=tanh, dropout=0.0):
+    def __init__(self, layers, activation=tanh, pool='max', dropout=0.0):
         super().__init__()
         self.layers = layers
         self.depth  = len(layers)
         self.activation = activation
         self.dropout = nn.Dropout(p=dropout)
+        self.pool = nn.MaxPool1d if pool == 'max' else nn.AvgPool1d
         for i, ls in enumerate(zip(layers[:-1], layers[1:])):
             l0, l1 = ls
             size0, c0, w0 = l0
             size1, c1, w1 = l1
             conv = Conv1d(c0, c1, w0)
-            pool = nn.MaxPool1d(size0 // size1)
+            pool = nn.MaxPool1d(size0 // size1) 
             setattr(self, f'conv{i}', conv)
             setattr(self, f'pool{i}', pool)
 
@@ -41,5 +42,7 @@ class ConvNet(nn.Module):
             pool = getattr(self, f'pool{i}')
             xs += [pool(a(d(conv(xs[-1]))))]
         y = xs[-1]
+        del xs
+        torch.cuda.empty_cache()
         return (y if y.shape[-1] > 1
                   else y.reshape([n_b, -1]))

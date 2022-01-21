@@ -1,8 +1,15 @@
+# TODO
+#   - shuffle and rebatch between epochs
+#   - define episodes with a list of dicts
+#   - log hparams to tensorboard / jsons
+#   - classify dataset pulses with output k-means
+
+
 import torch
 import matplotlib.pyplot as plt
 
 from models     import ND, ConvNet, BarlowTwins, cross_correlation
-from infusion   import pulses
+from infusion   import data
 from transforms import noise, vshift, scale
 
 def shuffle (dim, tensor):
@@ -18,7 +25,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 #--- Dataset ---
 
-full = pulses.Tensor("full").pulses
+full = data.Pulses("full").pulses
 data = (full[:2500]
             .view([2500, -1, 2, 128])
             .view([-1, 2, 128])
@@ -30,11 +37,11 @@ print(f"Number of pulse pairs: {data.shape[1]}")
 #--- Models ---
 
 layers = [[128, 1,   8],
-          [16,  8,   8],
-          [8,   16,  8],
-          [1,   32,  1]]
+          [16,  16,  8],
+          [8,   32,  8],
+          [1,   64,  1]]
 
-model = ConvNet(layers, dropout=0.0)
+model = ConvNet(layers, pool='max')
 
 twins = BarlowTwins(model)
 
@@ -60,9 +67,54 @@ if log_dir: twins.writer = SummaryWriter(log_dir)
 
 #==================================================
 
-
 #--- Main ---
 
+t_comp = noise(0.05) @ vshift(1) @ scale(0.2) 
+params = [
+        {'transforms': [noise(0.1)],    'epochs': 15, 'lr': 1e-3},
+        {'transforms': [vshift(1)],     'epochs': 15, 'lr': 1e-3},
+        {'transforms': [scale(0.4)],    'epochs': 15, 'lr': 1e-3},
+        {'transforms': [t_comp],        'epochs': 20, 'lr': 1e-3},
+        {'epochs': 80, 'lr': 1e-3, 'gamma': 0.9}
+]
+
+def episodes (params, defaults=None):
+    
+    defaults = {'epochs':  25,
+                'n_batch': 256,
+                'lr':      1e-3,
+                'gamma':   0.8,
+                'n_it':    3750
+                } | (defaults if defaults else {})
+
+    for i, p in enumerate(params):
+        p = defaults | p 
+
+        #--- data ---
+        xs = (pretraining(p['transforms'], p['n_batch'], p['n_it'])
+                if 'transforms' in p
+                else training(p['n_batch']))
+        xs = xs.cuda()
+
+        #--- optimizer ---
+        optim = Adam(twins.parameters(), lr=p['lr'])
+        lr    = ExponentialLR(optim, gamma=p['gamma'])
+
+        name  = f'pretrain-{i}' if 'transforms' in p else 'train'
+        twins.optimize(xs, optim, lr, epochs=p['epochs'], w=f"Loss/{name}")
+        free(optim, lr)
+        
+        #--- cross correlation ---
+        with torch.no_grad():
+            n = f'Cross correlation/{name}'
+            xs = xs.transpose(0, 1).view([2, -1, 128])
+            xs = shuffle(1, xs)[:,:2500]
+            ys = twins(xs)
+            C = cross_correlation(*ys)
+            twins.writer.add_image(n, (1 + C) / 2, dataformats="HW")
+        free(xs, ys, C)
+
+        
 def main (epochs=50, n_batch=128, lr=0.001, gamma=0.9):
     print(log_dir)
     
@@ -75,35 +127,43 @@ def main (epochs=50, n_batch=128, lr=0.001, gamma=0.9):
                   scale(0.4), 
                   noise(0.05) @ vshift(1) @ scale(0.2)] 
 
-    xs1 = pretraining(*transforms, n_it=3750).cuda()
-    xs2 = training().cuda()
+    xs1 = pretraining(*transforms, n_batch=n_batch, n_it=3750).cuda()
+    xs2 = training(n_batch).cuda()
     twins.cuda()
     
     #--- synthetic pairs ---
-    """
     optim1 = Adam(twins.parameters(), lr=lr[0])
     lr1    = ExponentialLR(optim1, gamma=gamma[0])
     twins.optimize(xs1, optim1, lr1, epochs=epochs[0], w="Loss/pretrain")
-    del optim1, lr1
-    """
+    free(optim1, lr1)
     
-    in1 = xs1.transpose(0, 1).view([2, -1, 128])
-    ys1 = twins(shuffle(1, in1)[:,:2500])
-    C1 = cross_correlation(*ys1)
-    twins.writer.add_image("Cross correlation/pretrain", (1 + C1) / 2, dataformats="HW")
-    del xs1, ys1, C1
+    with torch.no_grad():
+        name = "Cross correlation/pretrain"
+        in1 = xs1.transpose(0, 1).view([2, -1, 128])
+        ys1 = twins(shuffle(1, in1)[:,:2500])
+        C1 = cross_correlation(*ys1)
+        twins.writer.add_image(name, (1 + C1) / 2, dataformats="HW")
+        free(xs1, ys1, in1, C1)
 
     #--- real pairs ---
     optim2  = Adam(twins.parameters(), lr=lr[1])
     lr2     = ExponentialLR(optim2, gamma=gamma[1])
     twins.optimize(xs2, optim2, lr2, epochs=epochs[1], w="Loss/train")
-    del optim2, lr2
+    free(optim2, lr2)
+    
+    with torch.no_grad():
+        name = "Cross correlation"
+        ys2 = twins(xs2.transpose(0, 1).view([2, -1, 128]))
+        C2 = cross_correlation(*ys2)
+        twins.writer.add_image(name, (1 + C2) / 2, dataformats="HW")
+        free(xs2, ys2, C2)
 
-    ys2 = twins(xs2.transpose(0, 1).view([2, -1, 128]))
-    C2 = cross_correlation(*ys2)
-    twins.writer.add_image("Cross correlation", (1 + C2) / 2, dataformats="HW")
-    del xs2, ys2, C2
 
+#--- Cuda free ---
+
+def free (*xs):
+    for x in xs: del x
+    torch.cuda.empty_cache()
 
 #--- Batch --- 
 
@@ -115,7 +175,7 @@ def batch (n_batch, xs):
 
 #--- Augmented pairs ---
 
-def pretraining (*transforms, n_batch=128, n_it=1250):
+def pretraining (transforms, n_batch=128, n_it=1250):
     
     x  = shuffle(0, data.view([-1, 128]))[:n_it * n_batch] 
     xs = torch.cat([t.pair(x) for t in transforms], 1)
