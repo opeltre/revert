@@ -3,11 +3,13 @@ from torch.distributions.categorical import Categorical as prob
 
 class KMeans:
     """ Implementation of k-means ++ for pytorch."""
+    
+    @classmethod
+    def load (cls, data):
+        return cls(torch.load(data))
 
     def __init__(self, data):
-        """ Initialize with means [str|torch.Tensor] or number of means [int] """
-        if isinstance(data, str):
-            data = torch.load(data)
+        """ Initialize with means or number of means. """
         if isinstance(data, torch.Tensor):
             self.k       = data.shape[0]
             self.centers = data
@@ -23,13 +25,6 @@ class KMeans:
         d = torch.cdist(x, m)
         _, ids = torch.sort(d, -1)
         return ids[:,0]
-
-    def predict_count (self, x):
-        """ Return tensor of predictions and number of elements per cluster."""
-        c = self.predict(x)
-        Nc = (torch.zeros([self.k])
-                .scatter_add_(0, c, torch.ones(c.shape)))
-        return c, Nc
 
     def init (self, x):
         """ K-means ++ initialization on a dataset x."""
@@ -70,18 +65,18 @@ class KMeans:
             self.centers = m + 0
         return self
     
-    def loss (self, x):
+    def loss (self, x, pred=None):
         """ Sum of squared distances to cluster centers """
         m = self.centers
-        c = self.predict(x)
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
         mc = m.index_select(0, c)
         return ((x - mc)**2).sum() / x.shape[0]
 
-    def vars (self, x):
+    def vars (self, x, pred=None):
         """ Clusterwise variances. """
         out = torch.zeros([self.k], device=x.device)
         m = self.centers
-        c = self.predict(x)
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
         mc = m.index_select(0, c)
         d2 = ((x - mc) ** 2).sum([-1])
         Nc = torch.zeros([self.k]).scatter_add_(0, c, torch.ones(c.shape))
@@ -91,6 +86,21 @@ class KMeans:
         """ Clusterwise standard deviations. """
         return torch.sqrt(self.vars(x))
 
+    def counts (self, x, pred=None):
+        """ Return tensor of predictions and number of elements per cluster."""
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
+        Nc = (torch.zeros([self.k])
+                .scatter_add_(0, c, torch.ones(c.shape)))
+        return c, Nc
+    
     def cuda(self):
         """ Move means tensor to cuda. """
         self.centers = self.centers.cuda()
+        return self
+
+    def save (self, path):
+        torch.save(self.centers, path)
+
+    def __repr__(self):
+        tail = "(None)" if isinstance(self.centers, type(None)) else ""
+        return f"{self.k}-Means {tail}"
