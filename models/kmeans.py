@@ -39,7 +39,7 @@ class KMeans:
         self.centers = m
         return self
 
-    def fit (self, x, eps=1e-5, n_it=1000):
+    def fit (self, x, eps=1e-5, n_it=1000, verbose=False, sort=True):
         """ Fit on a dataset x. """
         if isinstance(self.centers, type(None)): 
             self.init(x)
@@ -59,14 +59,37 @@ class KMeans:
             m /= Nc[:,None]
             # Convergence criterion
             dm = m - self.centers
+            if verbose: print(dm.norm())
             if dm.norm() < eps:
-                print(f"converged at step {n}")
+                if verbose: print(f"converged at step {n}")
                 break
             self.centers = m + 0
+        if sort:
+            Nc = self.counts(x)
+            _ , ids = Nc.sort(descending=True)
+            self.centers = self.centers.index_select(0, ids)
         return self
     
+    def nearest (self, n, x, pred=None):
+        """ Return indices of nearest samples from cluster centers. """
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
+        ds = torch.cdist(self.centers, x)
+        _, ids = torch.sort(ds, dim=-1)
+        return ids[:,:n]
+
+    def classes (self, x, pred=None):
+        """ Return list of classes. """
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
+        C = []
+        for j in range(self.k):
+            in_j = labels == j
+            id_j = torch.nonzero(in_j)[:,0]
+            x_j = x.index_select(0, id_j)
+            C += [x_j]
+        return C
+
     def loss (self, x, pred=None):
-        """ Sum of squared distances to cluster centers """
+        """ Sum of squared distances to cluster centers. """
         m = self.centers
         c = self.predict(x) if isinstance(pred, type(None)) else pred
         mc = m.index_select(0, c)
@@ -89,13 +112,18 @@ class KMeans:
     def counts (self, x, pred=None):
         """ Return tensor of predictions and number of elements per cluster."""
         c = self.predict(x) if isinstance(pred, type(None)) else pred
-        Nc = (torch.zeros([self.k])
-                .scatter_add_(0, c, torch.ones(c.shape)))
-        return c, Nc
+        Nc = (torch.zeros([self.k], device=x.device)
+                .scatter_add_(0, c, torch.ones(c.shape, device=x.device)))
+        return Nc
     
     def cuda(self):
         """ Move means tensor to cuda. """
         self.centers = self.centers.cuda()
+        return self
+
+    def cpu(self):
+        """ Move means tensor to cuda. """
+        self.centers = self.centers.cpu()
         return self
 
     def save (self, path):
@@ -104,3 +132,9 @@ class KMeans:
     def __repr__(self):
         tail = "(None)" if isinstance(self.centers, type(None)) else ""
         return f"{self.k}-Means {tail}"
+
+    def swap (self, i, j):
+        mi, mj = self.centers[i], self.centers[j]
+        self.centers[i] = mj
+        self.centers[j] = mi
+        return self

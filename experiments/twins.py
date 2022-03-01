@@ -1,9 +1,5 @@
 # TODO
-#   - shuffle and rebatch between epochs
-#   - define episodes with a list of dicts
 #   - log hparams to tensorboard / jsons
-#   - classify dataset pulses with output k-means
-
 
 import torch
 import matplotlib.pyplot as plt

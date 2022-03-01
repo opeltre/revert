@@ -1,19 +1,34 @@
 import torch
 import matplotlib
 
-from models     import tsne, pca, mdse
-from infusion   import pulses
-from matplotlib import pyplot as plt
+from models         import tsne, pca, mdse
+from infusion.data  import Pulses
+from matplotlib     import pyplot as plt
 
 from twins import model
 
 st = torch.load("st/out64/mon3")
 model.load_state_dict(st)
 
+db = Pulses('full', 2500)
+
 colors = ['#d3b', '#f35', '#c82', '#fb2',\
           '#5a4', '#5aa', '#38d', '#a2d']
 
 cmap = matplotlib.cm.get_cmap('viridis')
+
+def shunted ():
+    field = "Shunt critical ICP [mmHg]"
+    res   = db.results()
+    S, NS = [], []
+    for k, p in zip(db.keys, db.pulses):
+        if not k in res:
+            continue
+        if field in res[k]:
+            S += [p]
+        else:
+            NS += [p]
+    return torch.stack(S), torch.stack(NS)
 
 #--- Sort patient pulses by barycenter distance 
 
@@ -71,12 +86,10 @@ def main (N=6):
 
     plot2d(p, c=color, title="PCA")
     plot2d(z, c=color, title="TSNE")
+
     #plot2d(m, c=color, title="MDSE")
-
     #z3 = tsne(y, k=3, p=10, N=2000)
-
     #plot3d(z3, c=color, title="TSNE")
-
 
 #--- Pulse plots 
 
