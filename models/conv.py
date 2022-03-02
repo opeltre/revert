@@ -13,8 +13,14 @@ class Conv1d(nn.Conv1d):
 
 
 class ConvNet(nn.Module):
+
+    @classmethod
+    def load(cls, path):
+        st = torch.load(path)
+        return cls(**st)
     
-    def __init__(self, layers, activation=tanh, pool='max', dropout=0.0):
+    def __init__(self, layers=[], activation=tanh, pool='max', 
+                       dropout=0.0, state=None):
         super().__init__()
         self.layers = layers
         self.depth  = len(layers)
@@ -29,7 +35,10 @@ class ConvNet(nn.Module):
             pool = nn.MaxPool1d(size0 // size1) 
             setattr(self, f'conv{i}', conv)
             setattr(self, f'pool{i}', pool)
-
+        if state:
+            self.load_state_dict(state)
+        self.data = dict(layers=layers, pool=pool)
+    
     def forward(self, x):
         n_b = x.shape[0]
         x0  = (x if x.dim() == 3
@@ -46,3 +55,7 @@ class ConvNet(nn.Module):
         torch.cuda.empty_cache()
         return (y if y.shape[-1] > 1
                   else y.reshape([n_b, -1]))
+
+    def save (self, path):
+        d = self.data | {"state": self.state_dict()}
+        torch.save(d, path)
