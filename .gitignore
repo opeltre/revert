@@ -18,3 +18,5 @@ experiments/_*
 experiments/st
 
 build
+_*
+**/_*
