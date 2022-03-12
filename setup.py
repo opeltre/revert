@@ -15,5 +15,6 @@ setup(
     license ='MIT',
     install_requires=requirements,
     packages = ['models',
+                'revert.plot',
                 'transforms']
 )
