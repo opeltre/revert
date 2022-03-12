@@ -20,3 +20,4 @@ experiments/st
 build
 _*
 **/_*
+!**/__init__.py
