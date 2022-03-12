@@ -70,8 +70,7 @@ params = [
         {'transforms': [noise(0.1)],    'epochs': 15, 'lr': 1e-3},
         {'transforms': [vshift(1)],     'epochs': 15, 'lr': 1e-3},
         {'transforms': [scale(0.4)],    'epochs': 15, 'lr': 1e-3},
-        {'transforms': [t_comp],        'epochs': 20, 'lr': 1e-3},
-        {'epochs': 80, 'lr': 1e-3, 'gamma': 0.9}
+        {'transforms': [t_comp],        'epochs': 20, 'lr': 1e-3}
 ]
 
 def episodes (params, defaults=None):
@@ -109,51 +108,6 @@ def episodes (params, defaults=None):
             C = cross_correlation(*ys)
             twins.writer.add_image(n, (1 + C) / 2, dataformats="HW")
         free(xs, ys, C)
-
-        
-def main (epochs=50, n_batch=128, lr=0.001, gamma=0.9):
-    print(log_dir)
-    
-    lr      = (lr, lr) if isinstance(lr, float) else lr
-    gamma   = (gamma, gamma) if isinstance(gamma, float) else gamma
-    epochs  = (epochs, epochs) if isinstance(epochs, int) else epochs 
-    
-    transforms = [noise(0.1), 
-                  vshift(1), 
-                  scale(0.4), 
-                  noise(0.05) @ vshift(1) @ scale(0.2)] 
-
-    xs1 = pretraining(*transforms, n_batch=n_batch, n_it=3750).cuda()
-    xs2 = training(n_batch).cuda()
-    twins.cuda()
-    
-    #--- synthetic pairs ---
-    optim1 = Adam(twins.parameters(), lr=lr[0])
-    lr1    = ExponentialLR(optim1, gamma=gamma[0])
-    twins.optimize(xs1, optim1, lr1, epochs=epochs[0], w="Loss/pretrain")
-    free(optim1, lr1)
-    
-    with torch.no_grad():
-        name = "Cross correlation/pretrain"
-        in1 = xs1.transpose(0, 1).view([2, -1, 128])
-        ys1 = twins(shuffle(1, in1)[:,:2500])
-        C1 = cross_correlation(*ys1)
-        twins.writer.add_image(name, (1 + C1) / 2, dataformats="HW")
-        free(xs1, ys1, in1, C1)
-
-    #--- real pairs ---
-    optim2  = Adam(twins.parameters(), lr=lr[1])
-    lr2     = ExponentialLR(optim2, gamma=gamma[1])
-    twins.optimize(xs2, optim2, lr2, epochs=epochs[1], w="Loss/train")
-    free(optim2, lr2)
-    
-    with torch.no_grad():
-        name = "Cross correlation"
-        ys2 = twins(xs2.transpose(0, 1).view([2, -1, 128]))
-        C2 = cross_correlation(*ys2)
-        twins.writer.add_image(name, (1 + C2) / 2, dataformats="HW")
-        free(xs2, ys2, C2)
-
 
 #--- Cuda free ---
 

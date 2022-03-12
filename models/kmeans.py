@@ -134,7 +134,7 @@ class KMeans:
         return f"{self.k}-Means {tail}"
 
     def swap (self, i, j):
-        mi, mj = self.centers[i], self.centers[j]
-        self.centers[i] = mj
-        self.centers[j] = mi
+        idx = torch.arange(self.centers.shape[0])
+        idx[i], idx[j] = j, i
+        self.centers = self.centers[idx]
         return self
