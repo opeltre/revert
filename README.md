@@ -5,22 +5,32 @@
 
 # REVERT
 
-This repository contains code for analysing flux and pressure measures 
-acquired for the [revert][revert] project.
+This repository contains code for analysing flux and pressure recording of
+the [revert][revert] project.
 
-See the linked (private) repositories containing specific data loaders: 
-- 📈 [infusion](http://github.com/opeltre/infusion)
-- 📉 [pcmri](http://github.com/opeltre/pcmri)
+## Install
 
-# Using notebooks
+```
+git clone https://github.com/opeltre/revert
+pip install revert
+```
 
-For jupyter to look for locally installed packages you need to 
+## Running tests
+
+```
+cd test && python -m unittest
+```
+
+## Using notebooks
+
+For jupyter to look for locally installed packages you might need to 
 build a kernel:
 
 ```
 pip install ipykernel
 python -m ipykernel install --user --name revert
 ```
+Otherwise you can also add paths to the repository with `sys.path.insert`. 
 
 # Blood and Cerebrospinal Fluid Dynamics
 
@@ -37,8 +47,8 @@ disorder that causes gait and other cognitive impairments in the
 elderly population. Believed to be largely misdiagnosed as Alzheimer, 
 NPH is a _reversible dementia_ as symptoms can sometimes
 quickly disappear by shunt drainage. Improving practice in NPH diagnosis 
-and gaining finer characterisations of CSF disorders is the goal of  
-revert. 
+and gaining finer characterisations of CSF disorders is the goal of the 
+revert project. 
 
 <img alt="brain PCMRI and infusion exams" height="300px"
     src="img/infusionPCMRI.png"> 
@@ -57,27 +67,13 @@ the inter-ventricular aqueduct and cervical vertebras (CSF).
 ## ICP 
 
 ICP is measured over time by lumbar puncture during infusion tests. 
-The acquisition lasts ~30 minutes so that the resulting signal contains 
+The acquisition lasts ~45 minutes so that the resulting signal contains 
 thousands of cardiac cycles, first recorded at baseline ICP and during
 a constant-rate injection of saline water in CSF space. 
 
-We use heat kernels to denoise the signal and perform pulse segmentation. 
-
 <img alt="intracranial pressure segmentation" height="200px"
     src="img/icpSegmentation.png">
-
-Averaging over multiple segments will yield a typical pulse 
-whose morphological features should contain relevant information 
-on the underlying CSF dynamics. 
-
-<img alt="typical pulse" width="200px" 
-    src="img/icpPulse.png">
-
-__N.B.__ The averaging process tends to flatten secondary 
-peaks and troughs, due to their temporal offsets accross segments. 
-Allowing for time reparameterisations should hence improve the typical 
-pulse shape extraction. 
-
+    
 ## Images 
 
 Vascular model [2], accounting for blood action on CSF pressure:  
@@ -86,10 +82,6 @@ Vascular model [2], accounting for blood action on CSF pressure:
 
 Anatomical model, accounting for circulation inside CSF space:  
 <img alt='csf anatomical model' width="200px" src='img/anatomicalModel.jpg'>
-
-Because CSF fluxes taken accross different route sections are 
-desynchronised, it is important to account for pressure gradients 
-putting the fluid in motion. 
 
 
 ## References 
