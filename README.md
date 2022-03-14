@@ -30,7 +30,8 @@ Some important pieces of code are intended to be run just once, e.g to transform
 
 For instance, the `infusion.Dataset` class will look for timestamps in a file called `periods-{dbname}.json` and one might want to run first:
 ```
-python scripts-infusion/extract_timestamps.py $INFUSION_DATASETS/full $INFUSION_DATASETS/periods-full.json
+cd scripts-infusion
+python extract_timestamps.py full $INFUSION_DATASETS/periods-full.json
 ```
 
 ## Using notebooks
