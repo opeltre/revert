@@ -1,6 +1,7 @@
 import torch
 
 def diff (t, step=1) :
+    """ Centered difference operator on (batched) signals. """
     dim = t.dim() - 1
     dt = torch.diff(t)
     dt0 = dt.select(dim,  0).unsqueeze(dim)

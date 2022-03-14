@@ -14,6 +14,8 @@ setup(
     url     ='https://github.com/opeltre/revert',
     license ='MIT',
     install_requires=requirements,
-    packages = ['revert', 
-                'revert.transforms']
+    packages = ['models',
+                'revert.plot',
+                'revert.transforms',
+                'revert.infusion']
 )

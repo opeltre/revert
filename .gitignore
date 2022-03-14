@@ -2,7 +2,22 @@ dist
 bib
 GENCI
 
+*.pt
+*.state
+
+runs
+assets
+
 __pycache
 */__pycache__
 */.ipynb_checkpoints
 **/__pycache__
+
+experiments/img
+experiments/_*
+experiments/st
+
+build
+_*
+**/_*
+!**/__init__.py

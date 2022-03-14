@@ -7,16 +7,18 @@ def norm2 (t, dim=None):
 
 def cross_correlation (ya, yb):
     """ Cross-correlation of N_batch x N """
+    ya, yb = ya - ya.mean([0]), yb - yb.mean([0])
     yab = ya[:,:,None] @ yb[:,None,:]
     return yab.sum(dim=[0]) / (norm2(ya, [0]) * norm2(yb, [0]))
 
 class BarlowTwins (nn.Module):
 
-    def __init__(self, model, offdiag=0.5):
+    def __init__(self, model, diag=2):
         """ Create twins from a model. """
         super().__init__()
-        self.model   = model
-        self.offdiag = offdiag 
+        self.model  = model
+        self.diag   = diag 
+        self.writer = False
 
     def forward (self, x):
         """ Apply twins to 2 x N_batch x N tensor. """
@@ -28,24 +30,74 @@ class BarlowTwins (nn.Module):
         """ Return Barlow twin loss of N_batch x N output. """
         n_out = y.shape[-1]
         C = cross_correlation(*y) 
-        I = torch.eye(n_out)
-        lbda      = self.offdiag
-        loss_mask = lbda * torch.ones(C.shape) + (1 - lbda) * I
-        return torch.sum(((C - I) * loss_mask) ** 2) / (2 * n_out ** 2) 
+        I = torch.eye(n_out, device=C.device)
+        w = self.diag
+        loss_mask = 1 + (w - 1) * I
+        return torch.sum(((C - I) * loss_mask) ** 2) / (n_out ** 2)
 
-    def fit (self, x, lr=1e-2, br=1e-3, n_batch=256):
+    def cross_corr (self, x):
+        """ Cross correlation matrix of twin outputs. l"""
+        return cross_correlation(*self(x))
+
+    def loss_on (self, x):
+        """ Barlow twin loss on input """
+        return self.loss(self.forward(x))
+    
+    def optimize (self, xs, optimizer, scheduler=None, epochs=1, w=None):
+        """ Fit on a N_it x 2 x N_batch x N tensor. """
+        N_it = xs.shape[0]
+        for e in range(epochs):
+            for nit, x in enumerate(xs): 
+                optimizer.zero_grad()
+                loss = self.loss_on(x)
+                loss.backward()
+                optimizer.step()
+                if w:
+                    self.write(w, loss.detach(), nit + e * N_it) 
+            if scheduler:
+                scheduler.step()
+        return self
+
+    def fit (self, x, lr=1e-2, br=1e-3, n_batch=128, w="Loss/fit"):
         """ Fit on a 2 x N_samples x N tensor. """
         n_it = x.shape[1] // n_batch
+        print(f"Fitting on {n_it} * {n_batch} pairs...")
         for s in range(n_it):
             y = self.forward(x[:,s:s + n_batch])
             loss = self.loss(y)
             loss.backward()
+            if w: 
+                self.write(w, loss, nit=s)
             with torch.no_grad(): 
                 for p in self.parameters(): 
                     p -= p.grad * lr
-                    p -= br * torch.randn(p.shape)
+                    p -= br * torch.randn(p.shape, device=p.device)
                 self.zero_grad()
-            return self
+        return self
+
+    def loop (self, xs, lr=1e-2, br=1e-3, n_batch=128, w="Loss/fit", epochs=1):
+        lr = lr if isinstance(lr, list) else [lr] * epochs
+        br = br if isinstance(br, list) else [br] * epochs
+        lr = lr + [lr[-1]] * (epochs - len(lr))
+        br = br + [br[-1]] * (epochs - len(br))
+        for e in range(epochs):
+            ys   = self(xs)
+            l0   = self.loss(ys)
+            print(f"\nLoss {e}: {float(l0):.4f}")
+            self.fit(xs, lr[e], br[e], n_batch, w=f'{w}{e}')
+        ys   = self(xs)
+        l1   = self.loss(ys)
+        print(f"\nLoss {e}: {float(l1):.4f}")
+        return self
+
+
+
+    def write(self, name, data, nit):
+        if self.writer:
+            self.writer.add_scalar(name, data, global_step=nit)
+
+
+
 
 
 

@@ -12,6 +12,15 @@ See the linked (private) repositories containing specific data loaders:
 - 📈 [infusion](http://github.com/opeltre/infusion)
 - 📉 [pcmri](http://github.com/opeltre/pcmri)
 
+# Using notebooks
+
+For jupyter to look for locally installed packages you need to 
+build a kernel:
+
+```
+pip install ipykernel
+python -m ipykernel install --user --name revert
+```
 
 # Blood and Cerebrospinal Fluid Dynamics
 
