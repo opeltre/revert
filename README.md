@@ -17,8 +17,20 @@ pip install revert
 
 ## Running tests
 
+Most of the functions defined in [revert/transforms](revert/transforms) are tested for now. 
+They include segmentation algorithms, spectral and spatial filters, and other differential calculus tools, implemented as sparse torch matrices. 
+
 ```
 cd test && python -m unittest
+```
+
+## Scripts 
+
+Some important pieces of code are intended to be run just once, e.g to transform the dataset or to extract segmented pulses from the recordings or to extract timestamps and regression results from XML files contained in the HDF5s to more convenients formats such as JSON or CSV. 
+
+For instance, the `infusion.Dataset` class will look for timestamps in a file called `periods-{dbname}.json` and one might want to run first:
+```
+python scripts-infusion/extract_timestamps.py $INFUSION_DATASETS/full $INFUSION_DATASETS/periods-full.json
 ```
 
 ## Using notebooks
@@ -31,6 +43,23 @@ pip install ipykernel
 python -m ipykernel install --user --name revert
 ```
 Otherwise you can also add paths to the repository with `sys.path.insert`. 
+
+# Data Loaders 
+
+## Infusion tests
+
+The `Dataset` constructor accepts relative paths w.r.t. the `$INFUSION_DATASETS` environment variable. 
+Either define this path in your shell configuration or supply absolute paths to the directory containing `.hdf5` files 
+compressed by ICM+. 
+
+```py 
+>>> from revert import infusion
+>>> db = infusion.Dataset("full")  # Dataset instance
+>>> file = db.get(0)               # File instance <=> db.get(db.ls()[0])
+>>> icp_full = file.icp()          # Full ICP signal
+>>> icp = file.icp(0, 1000)        # First 10 seconds at 100 Hz
+```
+See help for the `infusion.Dataset` and `infusion.File` for more information, or have a look at the source in the [revert/infusion](revert/infusion) directory.
 
 # Blood and Cerebrospinal Fluid Dynamics
 
