@@ -5,7 +5,7 @@
 
 # REVERT
 
-This repository contains code for analysing flux and pressure recording of
+This repository contains code for analysing flux and pressure recordings of
 the [revert][revert] project.
 
 ## Install
@@ -52,47 +52,3 @@ revert project.
 
 <img alt="brain PCMRI and infusion exams" height="300px"
     src="img/infusionPCMRI.png"> 
-
-## Flux 
-
-Blood and CSF fluxes over a typical cardiac cycle (CC) 
-are acquired during a PCMRI examination, in which fluid velocities 
-are integrated accross chosen sections of interest, 
-such as large cerebral veins and arteries (blood),
-the inter-ventricular aqueduct and cervical vertebras (CSF). 
-
-<img alt="intracranial volume change" height="200px"
-    src="img/volumeChange.png">
-
-## ICP 
-
-ICP is measured over time by lumbar puncture during infusion tests. 
-The acquisition lasts ~45 minutes so that the resulting signal contains 
-thousands of cardiac cycles, first recorded at baseline ICP and during
-a constant-rate injection of saline water in CSF space. 
-
-<img alt="intracranial pressure segmentation" height="200px"
-    src="img/icpSegmentation.png">
-    
-## Images 
-
-Vascular model [2], accounting for blood action on CSF pressure:  
-<img alt='csf vascular model' width="200px" src='img/vascularModel.svg'>
-
-
-Anatomical model, accounting for circulation inside CSF space:  
-<img alt='csf anatomical model' width="200px" src='img/anatomicalModel.jpg'>
-
-
-## References 
-
-[1] Marmarou A. 
-_A theoretical model and experimental evaluation of  the 
-cerebrospinal  fluid  system._
-Thesis, Drexel University, Philadelphia, PA, 1973
-
-[2] Czosnyka M, Piechnik S, Richards HK, Kirkpatrick P, 
-Smielewski P, Pickard JD. 
-_Contribution of mathematical modelling to the bedside tests of
- cerebrovascular autoregulation._ 
-Journal of Neurology, Neurosurgery, and Psychiatry 1997; 63:721-731 
