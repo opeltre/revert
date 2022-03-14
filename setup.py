@@ -16,5 +16,6 @@ setup(
     install_requires=requirements,
     packages = ['models',
                 'revert.plot',
-                'revert.transforms']
+                'revert.transforms',
+                'revert.infusion']
 )
