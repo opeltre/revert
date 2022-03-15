@@ -2,12 +2,12 @@ import re
 import torch
 import h5py
 import xml.etree.ElementTree as xml
-import datetime
 import math
+from datetime import datetime
 
 def unixTime (string): 
     fmt = "%d/%m/%Y %H:%M:%S"
-    dt = datetime.datetime.strptime(string, fmt)
+    dt = datetime.strptime(string, fmt)
     return dt.timestamp()
 
 
@@ -114,9 +114,6 @@ class File (h5py.File):
     def unix (self, t):
         return unixTime(t)
 
-    def datetime (self, t):
-        pass
-
     #--- Timestamps ---
     
     def infusion_start(self, src='icmtests'):
@@ -166,7 +163,7 @@ class File (h5py.File):
             attr = evt.attrib if src == "icmevents"\
                    else evt.find("TimePeriod").attrib
             ts  = [attr["StartTime"], attr["EndTime"]]
-            return [tzone(unixTime(t)) for t in ts] \
+            return [unixTime(t) for t in ts] \
                    if fmt == "unix" else ts
     
         #--- Event name ---
