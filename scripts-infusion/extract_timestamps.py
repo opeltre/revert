@@ -2,8 +2,6 @@
 
         $ python ./periods.py 2016 periods-2016.json 
 """
-
-import setup 
 import json
 import sys 
 
