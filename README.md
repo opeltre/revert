@@ -24,16 +24,6 @@ They include segmentation algorithms, spectral and spatial filters, and other di
 cd test && python -m unittest
 ```
 
-## Scripts 
-
-Some important pieces of code are intended to be run just once, e.g to transform the dataset or to extract segmented pulses from the recordings or to extract timestamps and regression results from XML files contained in the HDF5s to more convenients formats such as JSON or CSV. 
-
-For instance, the `infusion.Dataset` class will look for timestamps in a file called `periods-{dbname}.json` and one might want to run first:
-```
-cd scripts-infusion
-python extract_timestamps.py full $INFUSION_DATASETS/periods-full.json
-```
-
 ## Using notebooks
 
 For jupyter to look for locally installed packages you might need to 
@@ -44,6 +34,16 @@ pip install ipykernel
 python -m ipykernel install --user --name revert
 ```
 Otherwise you can also add paths to the repository with `sys.path.insert`. 
+
+## Scripts 
+
+Some important pieces of code are intended to be run just once, e.g to transform the dataset or to extract segmented pulses from the recordings or to extract timestamps and regression results from XML files contained in the HDF5s to more convenients formats such as JSON or CSV. 
+
+For instance, the `infusion.Dataset` class will look for timestamps in a file called `periods-{dbname}.json` and one might want to run first:
+```
+cd scripts-infusion
+python extract_timestamps.py full $INFUSION_DATASETS/periods-full.json
+```
 
 # Data Loaders 
 
