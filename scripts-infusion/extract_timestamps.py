@@ -7,7 +7,7 @@ import setup
 import json
 import sys 
 
-from infusion import Dataset
+from revert.infusion import Dataset
 
 #--- CLI arguments ---
 
