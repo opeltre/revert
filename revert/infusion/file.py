@@ -2,12 +2,18 @@ import re
 import torch
 import h5py
 import xml.etree.ElementTree as xml
-import datetime
 import math
+from datetime import datetime, timezone
 
-def unixTime (string): 
+def unixTimeICM (string): 
+    """ Fix timezone inconsistencies of ICM+ in datetime strings.
+    
+        ICM+ saves timestamps assuming computer is in UTC although
+        it might not be. Force tzinfo to UTC. 
+    """
     fmt = "%d/%m/%Y %H:%M:%S"
-    dt = datetime.datetime.strptime(string, fmt)
+    dt = (datetime.strptime(string, fmt)
+                  .replace(tzinfo=timezone.utc))
     return dt.timestamp()
 
 
@@ -112,10 +118,7 @@ class File (h5py.File):
             for val in obj]
 
     def unix (self, t):
-        return unixTime(t)
-
-    def datetime (self, t):
-        pass
+        return unixTimeICM(t)
 
     #--- Timestamps ---
     
@@ -166,7 +169,7 @@ class File (h5py.File):
             attr = evt.attrib if src == "icmevents"\
                    else evt.find("TimePeriod").attrib
             ts  = [attr["StartTime"], attr["EndTime"]]
-            return [tzone(unixTime(t)) for t in ts] \
+            return [unixTimeICM(t) for t in ts] \
                    if fmt == "unix" else ts
     
         #--- Event name ---
@@ -190,7 +193,7 @@ class File (h5py.File):
         s = b.decode("utf8")
         reg = r'\d\d/\d\d/\d{4}\s\d\d:\d\d:\d\d'
         ts = re.findall(reg, s)
-        return ts if fmt != "unix" else [unixTime(t) for t in ts]
+        return ts if fmt != "unix" else [unixTimeICM(t) for t in ts]
 
     #--- Regression Parameters ---
 

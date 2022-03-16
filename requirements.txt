@@ -1,2 +1,4 @@
+torch
+tqdm
 torchvision
 tensorboard
