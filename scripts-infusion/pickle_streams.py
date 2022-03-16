@@ -33,7 +33,10 @@ print(f"Writing .pt signals to {dest}")
 # Save .pt streams 
 for k in tqdm(db.ls()):
     f = db.get(k)
-    icp = f.icp()
-    path = os.path.join(dest, f'{f.key}.pt')
-    torch.save(icp, path)
+    try:
+        icp = f.icp()
+        path = os.path.join(dest, f'{f.key}.pt')
+        torch.save(icp, path)
+    except: 
+        print(f"Error looking for waves/icp in {k}")
     f.close()
