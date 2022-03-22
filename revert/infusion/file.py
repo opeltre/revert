@@ -1,5 +1,6 @@
 import re
 import torch
+import numpy as np
 import h5py
 import xml.etree.ElementTree as xml
 import math
@@ -59,7 +60,7 @@ class File (h5py.File):
         elif N2 == None:
             N1, N2 = 0, N1
         array = self['waves']['icp'][N1:N1+N2]
-        return torch.tensor(array)
+        return torch.tensor(np.array(array))
 
     def fs (self):
         """ Return sampling frequency. """
