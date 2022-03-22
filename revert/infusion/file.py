@@ -52,6 +52,8 @@ class File (h5py.File):
                 Load N1 pts of ICP signal from infusion start + (-N0). 
         """
         if N1 == None:
+            data = self['waves']['icp']
+            return torch.tensor(np.array(data))
             return torch.tensor(self['waves']['icp'])
         if "infusion" in kwargs:
             N2 = N1
@@ -59,8 +61,8 @@ class File (h5py.File):
                + int(kwargs["infusion"])
         elif N2 == None:
             N1, N2 = 0, N1
-        array = self['waves']['icp'][N1:N1+N2]
-        return torch.tensor(np.array(array))
+        data = self['waves']['icp'][N1:N1+N2]
+        return torch.tensor(np.array(data))
 
     def fs (self):
         """ Return sampling frequency. """
