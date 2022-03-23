@@ -25,7 +25,7 @@ class Spectral:
     def cache(self, N, real=True):
         """ Cache resampled density acting on length N signals. """
         if real:
-            if N % 2 != 0: print('irfft @ rfft != 1 for odd N')
+            if N % 2 != 0 and self.strict: print('irfft @ rfft != 1 for odd N')
             n = N // 2 + 1
         self._cached[N] = (resample(n)(self.density),
                            resample(N)(self.window) if self.window else 1)

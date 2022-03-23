@@ -1,4 +1,6 @@
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import numpy as np
 
 def style(name='seaborn'):
     plt.style.use('seaborn')
@@ -55,8 +57,18 @@ def infusion(icp, events, fs=100, size=(20, 10)):
     def plotEvent(name, color):
         if not name in events: return None
         xs = events[name]
-        for i in (0, 1): plt.plot([xs[i]] * 2, bnd, color=color)
+        x0 = events["start"]
+        for i in (0, 1): plt.plot([xs[i] - x0] * 2, bnd, color=color)
     names  = ["Baseline", "Infusion", "Plateau"]
     colors = ["blue", "red", "green"]
     for n, c in zip(names, colors): plotEvent(n, c)
+    return fig
+
+def pulses(xs, size=(10, 4), c=None):
+    c = np.linspace(0, 1, xs.shape[0]) if isinstance(c, type(None)) else c
+    color=cm.coolwarm_r(c)
+    fig = plt.figure(figsize=size)
+    for xi, ci in zip(xs, color):
+        plt.plot(xi, color=ci)
+    plt.title("Centered pulses")
     return fig
