@@ -1,11 +1,5 @@
 import torch
-
-def bound(x, bounds=[-10, 60]):
-    """
-    Truncate signal within bounds.
-    """
-    bounds = torch.tensor(bounds)
-    return torch.min(torch.max(bounds[0], x), bounds[1])
+from .bounds import bound
 
 def find_spikes(x, bounds=[-50, 150]):
     """
