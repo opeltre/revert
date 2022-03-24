@@ -2,6 +2,19 @@ import torch
 from math import factorial as fact
 from .transform import Transform
 
+from math      import pi
+
+
+def unshift(self, xs):
+    N  = xs.shape[1]
+    Fs = fft(xs, dim=1)
+    F1s = Fs[:,1]
+    phi = F1s.angle().mean()
+    rot = (torch.exp(torch.tensor(2j * pi * phi)) 
+        *  F1s.conj() / F1s.abs())
+    return ifft(rot * Fs)
+
+
 class Center (Transform):
 
     def __init__(self, order=0):
