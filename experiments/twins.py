@@ -4,9 +4,9 @@
 import torch
 import matplotlib.pyplot as plt
 
-from models     import ND, ConvNet, BarlowTwins, cross_correlation
-from infusion   import data
-from transforms import noise, vshift, scale
+from revert.models     import ND, ConvNet, BarlowTwins, cross_correlation
+from infusion          import data
+from revert.transforms import noise, vshift, scale
 
 def shuffle (dim, tensor):
     sigma = torch.randperm(tensor.shape[dim], device=tensor.device)

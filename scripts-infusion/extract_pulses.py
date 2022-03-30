@@ -4,7 +4,7 @@ import json
 import tqdm
 
 from revert import infusion
-from models import ConvNet
+from revert.models     import ConvNet
 from revert.transforms import filter_spikes, bandpass, Troughs, diff
 from revert.transforms import segment, mask_center
 
@@ -45,17 +45,18 @@ def main (model_state="pretrained.pt", Npulses=64, minutes=6):
             troughs = argmin(bp(icp))
             if icp.shape[0] != Npts:
                 raise RuntimeError("not enough points")
-            x, x_mean, x_slope = select_pulses(bp(icp), troughs, Npulses, loss)
-            out += [(x, x_mean, x_slope)]
+            out += [select_pulses(bp(icp), troughs, Npulses, loss)]
         except:
             errors += [k]
         file.close()
 
     # save output
     print(f"saving output as '{dest}'")
-    xs    = [torch.stack([x[i] for x in out]) for i in range(3)]
-    names = ["pulses", "means", "slopes"]
+    xs    = [torch.stack([x[i] for x in out]) for i in range(4)]
+    names = ["masks", "pulses", "means", "slopes"]
     data  = {ni: xi for xi, ni in zip(xs, names)}
+    for n in names: 
+        print(f"  + {n}\t: {list(data[n].shape)} tensor")
     data["keys"]   = [k for k in keys if not k in errors] 
     data["errors"] = errors
     torch.save(data, f'{dest}')
@@ -73,20 +74,22 @@ def select_pulses (icp, troughs, Npulses, loss):
     # sort by loss value
     z = loss(x)
     idx = z.sort().indices[:Npulses]
-    return x[idx], x_mean[idx], x_slope[idx]
+    return mask[idx], x[idx], x_mean[idx], x_slope[idx]
 
 def mean_loss(model=None):
     def loss(x):
-        y = (model(x) if not isinstance(model, type(None)) 
-                      else x)
+        with torch.no_grad():
+            y = (model(x) if not isinstance(model, type(None)) 
+                          else x)
         y_mean = y - y.mean([0])[None,:]
         return y_mean.norm(dim=[-1])
     return loss
 
 def diff_loss(model=None):
     def loss(x):
-        y = (model(x) if not isinstance(model, type(None)) 
-                      else x)
+        with torch.no_grad():
+            y = (model(x) if not isinstance(model, type(None)) 
+                          else x)
         dy = diff(y.T).T
         return dy.norm(dim=[-1])
     return loss
