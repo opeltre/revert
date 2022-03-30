@@ -17,5 +17,6 @@ setup(
     packages = ['models',
                 'revert.plot',
                 'revert.transforms',
-                'revert.infusion']
+                'revert.infusion',
+                'revert.pcmri']
 )
