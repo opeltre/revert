@@ -62,6 +62,17 @@ compressed by ICM+.
 ```
 See help for the `infusion.Dataset` and `infusion.File` for more information, or have a look at the source in the [revert/infusion](revert/infusion) directory.
 
+## PCMRI exams
+
+The `Dataset` constructor accepts relative paths w.r.t. the `$PCMRI_DATASETS` environment variable. 
+
+```py
+>>> from revert import pcmri
+>>> db = pcmri.Dataset("full")     # Dataset instance
+>>> file = db.get(0)               # File instance
+```
+See help for the `pcmri.Dataset` and `pcmri.File` for more information, or have a look at the source in the [revert/pcmri](revert/pcmri) directory.
+
 # Blood and Cerebrospinal Fluid Dynamics
 
 Intracranial pressure (ICP) shows a pulsatile dynamic due
