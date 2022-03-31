@@ -84,6 +84,8 @@ class File:
             flux  = self.read(f, fields, fmt)
             if len(flux) > 0 and CHANNELS[key] != 'x':
                 fluxes[key] = self.read(f, fields, fmt)
+        if fmt == 'dict': 
+            return fluxes
         if fmt == 'json':
             return json.dumps(fluxes)
         if fmt[:5] == 'torch': 
