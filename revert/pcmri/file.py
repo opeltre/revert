@@ -41,12 +41,17 @@ class File:
                            if re.search(p, channel(c))]
         return channels 
 
-    def flows (self, fmt='torch'):
+    def flows (self, fmt='torch', normalise=True, aqueduc=True):
         types = ['art > cervi', 'art > cereb', 
                  'ven > cervi', 'ven > cereb']
-        return torch.stack(
-            [self.sumAll(t, fmt=fmt) for t in types] \
-          + [self.read('c2-c3', fmt=fmt)[0]])
+        flows = [self.sumAll(t, fmt=fmt) for t in types]
+        flows += [self.read('c2-c3', fmt=fmt)[0]]
+        if aqueduc:
+             flows += [self.read('aqueduc', fmt=fmt)[0]]
+        if normalise: 
+            flows[2] *= flows[0].mean() / flows[2].mean()
+            flows[3] *= flows[1].mean() / flows[3].mean()
+        return torch.stack(flows)
 
     def sumAll (self, fluxtype, fields=['debit'], fmt='torch'):
         patterns = [c for c in self.channels 
