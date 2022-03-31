@@ -42,7 +42,7 @@ class Dataset :
             return file.File(self.glob()[pattern])
         return file.File(self.glob(pattern)[0])
     
-    def getAll (pattern):
+    def getAll (self, pattern):
         return [file.File(f) for f in self.glob(pattern)]
 
     def __repr__(self):
