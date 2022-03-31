@@ -33,7 +33,7 @@ class File:
                 self.channels += [name.replace(".txt", "")]
     
     def getChannels (self, *patterns):
-        patterns = ['*'] if not len(patterns) else patterns
+        patterns = [''] if not len(patterns) else patterns
         channels = []
         for pat in patterns: 
             p = channel(pat) if type(pat) == str else pat
@@ -42,6 +42,22 @@ class File:
         return channels 
 
     def flows (self, fmt='torch', normalise=True, aqueduc=True):
+        """
+        Return intracranial flows as a (6, 32) tensor. 
+
+        The returned tensor has 5 to 6 channels, depending 
+        the `aqueduc` optional parameter: 
+
+            - arterial cervical
+            - arterial cerebral
+            - venous cervical
+            - venous cerebral
+            - csf cervical
+            - csf aqueduc
+        
+        If `normalise=True`, the mean venous flows will be made 
+        equal to the mean arterial flows, level-wise. 
+        """
         types = ['art > cervi', 'art > cereb', 
                  'ven > cervi', 'ven > cereb']
         flows = [self.sumAll(t, fmt=fmt) for t in types]
@@ -53,7 +69,6 @@ class File:
             flows[1] *= torch.sign(flows[1]).mean()
             flows[2] *= flows[0].mean() / flows[2].mean()
             flows[3] *= flows[1].mean() / flows[3].mean()
-
         return torch.stack(flows)
 
     def sumAll (self, fluxtype, fields=['debit'], fmt='torch'):
