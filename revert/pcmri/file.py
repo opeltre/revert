@@ -48,15 +48,17 @@ class File:
         flows += [self.read('c2-c3', fmt=fmt)[0]]
         if aqueduc:
              flows += [self.read('aqueduc', fmt=fmt)[0]]
-        if normalise: 
+        if normalise:
+            flows[0] *= torch.sign(flows[0]).mean()
+            flows[1] *= torch.sign(flows[1]).mean()
             flows[2] *= flows[0].mean() / flows[2].mean()
             flows[3] *= flows[1].mean() / flows[3].mean()
+
         return torch.stack(flows)
 
     def sumAll (self, fluxtype, fields=['debit'], fmt='torch'):
         patterns = [c for c in self.channels 
                       if CHANNELS[channel(c)]['type'] == fluxtype] 
-        print(patterns)
         return self.readAll(*patterns, fields=fields, fmt=fmt).sum([0])
     
     def readAll (self, *patterns, fields=['debit'], fmt='torch'):
