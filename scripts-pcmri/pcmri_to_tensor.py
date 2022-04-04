@@ -30,11 +30,13 @@ for patient in tqdm(db.getAll("*")):
             with open("patients_json/" + patient.id + ".json", 'w') as outfile:
                 json.dump(data, outfile, indent=4)
         if args.torch:
-            pt_flows.append(patient.flows())
+            pt_flows.append(patient.flows().tolist())
         valid_keys.append(patient.id)
     except:
         error_keys.append(patient.id)
 
-torch.save({"flows": pt_flows, "keys": valid_keys, "errors": error_keys}, "pcmri_tensor.pt")
+if args.torch:
+    torch.save({"flows": torch.tensor(pt_flows), "keys": valid_keys, "errors": error_keys}, "pcmri_tensor.pt")
+
 print("Valid:", len(valid_keys))
 print("Error:", len(error_keys))
