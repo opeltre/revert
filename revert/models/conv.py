@@ -5,7 +5,7 @@ from torch.nn.functional import relu
 from torch import sigmoid, tanh
 
 class Conv1d(nn.Conv1d):
-    """ Periodic Convolution. """
+    """ 1D Convolutional layer with periodic boundary conditions."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(
@@ -13,20 +13,36 @@ class Conv1d(nn.Conv1d):
 
 
 class ConvNet(nn.Module):
+    """ 1D Convolutional network with periodic boundary conditions."""
 
     @classmethod
     def load(cls, path):
+        """ Load model from a state file. 
+
+            See model.save(path)
+        """
         st = torch.load(path)
         return cls(**st)
     
     def __init__(self, layers=[], activation=tanh, pool='max', 
                        dropout=0.0, state=None):
+        """ Create model with given layer parameters. 
+
+            The 'layers' argument is a list of triples `[Ni, Ci, Wi]` where:
+            - `Ni` is the number of time points 
+            - `Ci` is the number of channels 
+            - `Wi` is the width of convolution kernels
+            
+            A pooling layer is applied between layers i and (i + 1)
+            depending on the ratio of time lengths. 
+        """
         super().__init__()
         self.layers = layers
         self.depth  = len(layers)
         self.activation = activation
         self.dropout = nn.Dropout(p=dropout)
         self.pool = nn.MaxPool1d if pool == 'max' else nn.AvgPool1d
+        self.data = dict(layers=layers, pool=pool)
         for i, ls in enumerate(zip(layers[:-1], layers[1:])):
             l0, l1 = ls
             size0, c0, w0 = l0
@@ -37,9 +53,13 @@ class ConvNet(nn.Module):
             setattr(self, f'pool{i}', pool)
         if state:
             self.load_state_dict(state)
-        self.data = dict(layers=layers, pool=pool)
     
     def forward(self, x):
+        """ Apply model to a batch of input signals. 
+
+            Input can be of shape [B, C, N] or [B, N] when C=1.
+            Output will be of shape [B, C', N'] or [B, N'] when C'=1.
+        """
         n_b = x.shape[0]
         x0  = (x if x.dim() == 3
                  else x.view([n_b, 1, -1]))
@@ -57,5 +77,6 @@ class ConvNet(nn.Module):
                   else y.reshape([n_b, -1]))
 
     def save (self, path):
+        """ Save model data and state """
         d = self.data | {"state": self.state_dict()}
         torch.save(d, path)
