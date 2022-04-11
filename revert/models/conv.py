@@ -4,6 +4,8 @@ import torch.nn as nn
 from torch.nn.functional import relu
 from torch import sigmoid, tanh
 
+from .model import Model
+
 class Conv1d(nn.Conv1d):
     """ 1D Convolutional layer with periodic boundary conditions."""
 
@@ -12,7 +14,7 @@ class Conv1d(nn.Conv1d):
             *args, padding='same', padding_mode='circular', **kwargs)
 
 
-class ConvNet(nn.Module):
+class ConvNet(Model):
     """ 1D Convolutional network with periodic boundary conditions."""
 
     @classmethod
