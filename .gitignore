@@ -21,3 +21,6 @@ build
 _*
 **/_*
 !**/__init__.py
+
+scripts-pcmri/patients_json
+scripts-pcmri/pcmri_tensor.pt

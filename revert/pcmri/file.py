@@ -33,7 +33,7 @@ class File:
                 self.channels += [name.replace(".txt", "")]
     
     def getChannels (self, *patterns):
-        patterns = ['*'] if not len(patterns) else patterns
+        patterns = [''] if not len(patterns) else patterns
         channels = []
         for pat in patterns: 
             p = channel(pat) if type(pat) == str else pat
@@ -41,17 +41,39 @@ class File:
                            if re.search(p, channel(c))]
         return channels 
 
-    def flows (self, fmt='torch'):
+    def flows (self, fmt='torch', normalise=True, aqueduc=True):
+        """
+        Return intracranial flows as a (6, 32) tensor. 
+
+        The returned tensor has 5 to 6 channels, depending 
+        the `aqueduc` optional parameter: 
+
+            - arterial cervical
+            - arterial cerebral
+            - venous cervical
+            - venous cerebral
+            - csf cervical
+            - csf aqueduc
+        
+        If `normalise=True`, the mean venous flows will be made 
+        equal to the mean arterial flows, level-wise. 
+        """
         types = ['art > cervi', 'art > cereb', 
                  'ven > cervi', 'ven > cereb']
-        return torch.stack(
-            [self.sumAll(t, fmt=fmt) for t in types] \
-          + [self.read('c2-c3', fmt=fmt)[0]])
+        flows = [self.sumAll(t, fmt=fmt) for t in types]
+        flows += [self.read('c2-c3', fmt=fmt)[0]]
+        if aqueduc:
+             flows += [self.read('aqueduc', fmt=fmt)[0]]
+        if normalise:
+            flows[0] *= torch.sign(flows[0]).mean()
+            flows[1] *= torch.sign(flows[1]).mean()
+            flows[2] *= flows[0].mean() / flows[2].mean()
+            flows[3] *= flows[1].mean() / flows[3].mean()
+        return torch.stack(flows)
 
     def sumAll (self, fluxtype, fields=['debit'], fmt='torch'):
         patterns = [c for c in self.channels 
                       if CHANNELS[channel(c)]['type'] == fluxtype] 
-        print(patterns)
         return self.readAll(*patterns, fields=fields, fmt=fmt).sum([0])
     
     def readAll (self, *patterns, fields=['debit'], fmt='torch'):
@@ -62,6 +84,8 @@ class File:
             flux  = self.read(f, fields, fmt)
             if len(flux) > 0 and CHANNELS[key] != 'x':
                 fluxes[key] = self.read(f, fields, fmt)
+        if fmt == 'dict': 
+            return fluxes
         if fmt == 'json':
             return json.dumps(fluxes)
         if fmt[:5] == 'torch': 
