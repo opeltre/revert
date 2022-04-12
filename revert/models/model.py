@@ -3,22 +3,27 @@ import torch.nn as nn
 
 class Model (nn.Module):
     
-    def loss_on (self, x):
+    def loss_on (self, x, y=None):
         """ Model loss on input """
         try: 
             loss = getattr(self, 'loss')
         except:
             raise RuntimeError("'model.loss' is not defined")
-        return loss(self.forward(x))
+        return loss(self.forward(x), y=None)
     
-    def optimize (self, xs, optimizer, scheduler=None, epochs=1, w=None, nw=10):
-        """ Fit on a N_it x 2 x N_batch x N tensor. """
+    def optimize (self, xs, optimizer=None, scheduler=None, epochs=1, w=None, nw=10):
+        """ Fit on a N_it x 2 x N_batch x N tensor. 
+            
+            The iterable 'xs' should yield either tensor / tuple of tensor batches,
+            see torch.utils.data.TensorDataset for instance. 
+        """
         N_it = xs.shape[0]
         for e in range(epochs):
             l = 0
             for nit, x in enumerate(xs): 
                 optimizer.zero_grad()
-                loss = self.loss_on(x)
+                loss = (self.loss_on(x) if isinstance(x, torch.Tensor)
+                        else self.loss_on(*x))
                 loss.backward()
                 optimizer.step()
                 if w and nit % nw == 0:
