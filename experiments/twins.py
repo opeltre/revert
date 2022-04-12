@@ -5,8 +5,8 @@ import torch
 import matplotlib.pyplot as plt
 
 from revert.models     import ND, ConvNet, BarlowTwins, cross_correlation
-from infusion          import data
 from revert.transforms import noise, vshift, scale
+from revert            import infusion
 
 def shuffle (dim, tensor):
     sigma = torch.randperm(tensor.shape[dim], device=tensor.device)
@@ -21,7 +21,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 #--- Dataset ---
 
-full = data.Pulses("full").pulses
+full = infusion.Pulses("full").pulses
 data = (full[:2500]
             .view([2500, -1, 2, 128])
             .view([-1, 2, 128])
