@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from .model import Model
+from .module import Module
 
 def norm2 (t, dim=None):
     """ L2-norm on specified dimensions """
@@ -14,7 +14,7 @@ def cross_correlation (ya, yb):
     return yab.sum(dim=[0]) / (norm2(ya, [0]) * norm2(yb, [0]))
 
 
-class BarlowTwins (Model):
+class BarlowTwins (Module):
 
     def __init__(self, model, diag=2):
         """ Create twins from a model. """

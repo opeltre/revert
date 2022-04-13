@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-class Model (nn.Module):
+class Module (nn.Module):
+    """ Module subclass for writing to tensorboard during training. """
     
     def loss_on (self, x, *ys):
         """ Model loss on input """
