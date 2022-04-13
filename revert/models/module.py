@@ -6,9 +6,7 @@ class Module (nn.Module):
     
     def loss_on (self, x, *ys):
         """ Model loss on input """
-        try: 
-            loss = getattr(self, 'loss')
-        except:
+        if not "loss" in self.__dir__():
             raise RuntimeError("'model.loss' is not defined")
         return self.loss(self.forward(x), *ys)
     
