@@ -35,5 +35,5 @@ class Module (nn.Module):
 
     def write(self, name, data, nit):
         """ Write a scalar to tensorboard."""
-        if self.writer:
+        if 'writer' in self.__dir__() and self.writer:
             self.writer.add_scalar(name, data, global_step=nit)
