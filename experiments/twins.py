@@ -96,7 +96,7 @@ def episodes (params, defaults=None):
         lr    = ExponentialLR(optim, gamma=p['gamma'])
 
         name  = f'pretrain-{i}' if 'transforms' in p else 'train'
-        twins.optimize(xs, optim, lr, epochs=p['epochs'], w=f"Loss/{name}")
+        twins.fit(xs, optim, lr, epochs=p['epochs'], w=f"Loss/{name}")
         free(optim, lr)
         
         #--- cross correlation ---

@@ -12,7 +12,7 @@ class Module (nn.Module):
             raise RuntimeError("'model.loss' is not defined")
         return self.loss(self.forward(x), *ys)
     
-    def optimize (self, xs, optimizer=None, scheduler=None, epochs=1, w=None, nw=10):
+    def fit (self, xs, optimizer=None, scheduler=None, epochs=1, w=None, nw=10):
         """ Fit on a N_it x 2 x N_batch x N tensor. 
             
             The iterable 'xs' should yield either tensor / tuple of tensor batches,
