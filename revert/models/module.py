@@ -18,7 +18,7 @@ class Module (nn.Module):
             The iterable 'xs' should yield either tensor / tuple of tensor batches,
             see torch.utils.data.TensorDataset for instance. 
         """
-        N_it = xs.shape[0]
+        N_it = len(xs)
         for e in range(epochs):
             l = 0
             for nit, x in enumerate(xs): 
