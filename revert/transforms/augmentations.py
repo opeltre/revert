@@ -24,7 +24,7 @@ def noise (amp):
 
 def scale (amp):
     return Transform(
-        lambda x: x * torch.exp(amp * torch.randn(x.shape[0]))[:,None])
+        lambda x: x * (1 + amp * (torch.rand(x.shape[0]) - .5))[:,None])
 
 def Pair (transform):
     return lambda x: torch.stack([x, transform(x)])
