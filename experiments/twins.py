@@ -5,8 +5,8 @@ import torch
 import matplotlib.pyplot as plt
 
 from revert.models     import ND, ConvNet, BarlowTwins, cross_correlation
-from infusion          import data
 from revert.transforms import noise, vshift, scale
+from revert            import infusion
 
 def shuffle (dim, tensor):
     sigma = torch.randperm(tensor.shape[dim], device=tensor.device)
@@ -21,7 +21,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 #--- Dataset ---
 
-full = data.Pulses("full").pulses
+full = infusion.Pulses("full").pulses
 data = (full[:2500]
             .view([2500, -1, 2, 128])
             .view([-1, 2, 128])
@@ -69,7 +69,7 @@ t_comp = noise(0.05) @ vshift(1) @ scale(0.2)
 params = [
         {'transforms': [noise(0.1)],    'epochs': 15, 'lr': 1e-3},
         {'transforms': [vshift(1)],     'epochs': 15, 'lr': 1e-3},
-        {'transforms': [scale(0.4)],    'epochs': 15, 'lr': 1e-3},
+        {'transforms': [scale(0.3)],    'epochs': 15, 'lr': 1e-3},
         {'transforms': [t_comp],        'epochs': 20, 'lr': 1e-3}
 ]
 
@@ -96,7 +96,7 @@ def episodes (params, defaults=None):
         lr    = ExponentialLR(optim, gamma=p['gamma'])
 
         name  = f'pretrain-{i}' if 'transforms' in p else 'train'
-        twins.optimize(xs, optim, lr, epochs=p['epochs'], w=f"Loss/{name}")
+        twins.fit(xs, optim, lr, epochs=p['epochs'], w=f"Loss/{name}")
         free(optim, lr)
         
         #--- cross correlation ---

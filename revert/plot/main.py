@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+from math import ceil
 
 def style(name='seaborn'):
     plt.style.use('seaborn')
@@ -11,9 +12,10 @@ def colors():
 
 #--- Multiple plots 
 
-def grid (traces, shape, title=None, titles=None, c=None, lw=1):
+def grid (traces, shape=tuple(), title=None, titles=None, c=None, lw=1):
     c = colors() if not c else c
-    w, h = shape[:2]
+    w      = shape[0]  if len(shape) else 4 
+    w, h   = shape[:2] if len(shape) > 1 else (w, ceil(len(traces) / w))
     sw, sh = shape[2:] if len(shape) > 2 else (4, 4)
     fig = plt.figure(figsize=(w * sw, h * sh))
     if title:
@@ -29,7 +31,8 @@ def grid (traces, shape, title=None, titles=None, c=None, lw=1):
 
 #--- KMeans plots 
 
-def cluster_grid (km, x, y, P=12, avg=False, title="Cluster grid"):
+def cluster_grid (km, x, y=None, P=12, avg=False, title="Cluster grid"):
+    if isinstance(y, type(None)): y = x
     ids = km.nearest(P, y)
     nearest = [x.index_select(0, js) for js in ids]
     traces  = [xs.T if not avg else xs.mean([0]) for xs in nearest]
@@ -40,7 +43,14 @@ def cluster_grid (km, x, y, P=12, avg=False, title="Cluster grid"):
     fig = grid(traces, (8, 8), title=title, titles=titles)
     return fig
 
-def cluster(xi, i='n', c='blue'):
+def cluster(km, i, x, y=None, P=64, shape=tuple(), **kws):
+    if isinstance(y, type(None)): y = x
+    c = km.predict(y)
+    idx = (c == i).nonzero().flatten()
+    xi  = x[idx]
+    Nplots = ceil(x.shape[0] / P)
+    traces = [x[j:j+P] for j in range(Nplots)]
+    grid(traces, **kws)
     plt.plot(xi[:64].T, color=c, lw=.5)
     plt.title(f'cluster {i}')
     plt.show()

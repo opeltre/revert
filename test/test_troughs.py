@@ -1,4 +1,4 @@
-from infusion import Troughs
+from revert.transforms import Troughs
 
 import test
 import torch

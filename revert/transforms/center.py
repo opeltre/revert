@@ -3,6 +3,7 @@ from math import factorial as fact
 from .transform import Transform
 
 from math      import pi
+from torch.fft import fft, ifft
 
 
 def unshift(self, xs):

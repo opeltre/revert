@@ -23,8 +23,10 @@ class KMeans:
         """ Predict cluster labels. """
         m = self.centers
         d = torch.cdist(x, m)
-        _, ids = torch.sort(d, -1)
-        return ids[:,0]
+        ids = torch.sort(d, -1).indices[:,0]
+        del d, m
+        torch.cuda.empty_cache()
+        return ids
 
     def init (self, x):
         """ K-means ++ initialization on a dataset x."""
@@ -32,11 +34,13 @@ class KMeans:
         m = x[i0]
         while m.shape[0] < self.k:
             d = torch.cdist(x, m)
-            D, ids = torch.sort(d, -1)
+            D = torch.sort(d, -1).values
             p = prob(D[:,0] ** 2)
             i = p.sample()
             m = torch.cat([m, x[i:i+1]])
         self.centers = m
+        del d, D, p, i, m
+        torch.cuda.empty_cache()
         return self
 
     def fit (self, x, eps=1e-5, n_it=1000, verbose=False, sort=True):
@@ -50,6 +54,7 @@ class KMeans:
         Nc   = torch.zeros([self.k],  device=x.device)
         ones = torch.ones(x.shape[0], device=x.device)
         for n in range(n_it):
+            torch.cuda.empty_cache()
             # E step
             c = self.predict(x)
             # M step 
@@ -57,10 +62,13 @@ class KMeans:
             idx = c[:,None].repeat(1, d)
             m.zero_().scatter_add_(0, idx, x)
             m /= Nc[:,None]
+            # free
+            del c, idx
+            torch.cuda.empty_cache()
             # Convergence criterion
-            dm = m - self.centers
-            if verbose: print(dm.norm())
-            if dm.norm() < eps:
+            dm = (m - self.centers).norm()
+            if verbose: print(dm)
+            if dm < eps:
                 if verbose: print(f"converged at step {n}")
                 break
             self.centers = m + 0
@@ -68,6 +76,9 @@ class KMeans:
             Nc = self.counts(x)
             _ , ids = Nc.sort(descending=True)
             self.centers = self.centers.index_select(0, ids)
+        # free
+        del Nc, m, dm
+        torch.cuda.empty_cache()
         return self
     
     def nearest (self, n, x, pred=None):
