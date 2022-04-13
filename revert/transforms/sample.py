@@ -31,8 +31,6 @@ def resample(N):
         du_pows = du_pows if x.dim() == 1 else du_pows.unsqueeze(2)
         y = (pol[:,j] * du_pows).sum([0])
         return y if x.dim() == 1 else y.T
-            
-            
 
     return runResample
 
