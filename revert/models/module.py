@@ -2,7 +2,16 @@ import torch
 import torch.nn as nn
 
 class Module (nn.Module):
-    """ Module subclass for writing to tensorboard during training. """
+    """ Module subclass for writing to tensorboard during training. 
+
+        The module object should implement as method or attribute 
+        a function `module.loss(y, *ys)` that will be backpropagated 
+        during `model.fit(xs, optim)`. 
+
+        The `model.writer` object will be looked for to 
+        write loss values to tensorboard during training.
+        Overwrite `model.write` to log such values elsewhere. 
+    """
     
     def loss_on (self, x, *ys):
         """ Model loss on input """
