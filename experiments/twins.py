@@ -69,7 +69,7 @@ t_comp = noise(0.05) @ vshift(1) @ scale(0.2)
 params = [
         {'transforms': [noise(0.1)],    'epochs': 15, 'lr': 1e-3},
         {'transforms': [vshift(1)],     'epochs': 15, 'lr': 1e-3},
-        {'transforms': [scale(0.4)],    'epochs': 15, 'lr': 1e-3},
+        {'transforms': [scale(0.3)],    'epochs': 15, 'lr': 1e-3},
         {'transforms': [t_comp],        'epochs': 20, 'lr': 1e-3}
 ]
 

@@ -3,13 +3,13 @@ import torch.nn as nn
 
 class Model (nn.Module):
     
-    def loss_on (self, x, y=None):
+    def loss_on (self, x, *ys):
         """ Model loss on input """
         try: 
             loss = getattr(self, 'loss')
         except:
             raise RuntimeError("'model.loss' is not defined")
-        return loss(self.forward(x), y=None)
+        return self.loss(self.forward(x), *ys)
     
     def optimize (self, xs, optimizer=None, scheduler=None, epochs=1, w=None, nw=10):
         """ Fit on a N_it x 2 x N_batch x N tensor. 
@@ -26,11 +26,10 @@ class Model (nn.Module):
                         else self.loss_on(*x))
                 loss.backward()
                 optimizer.step()
-                if w and nit % nw == 0:
-                    l = (l + loss.detach()) / nw
+                l += loss.detach()
+                if w and nit % nw == 0 and nit > 0:
                     self.write(w, l / nw, nit + e * N_it) 
-                else: 
-                    l += loss.detach()
+                    l = 0
             if scheduler:
                 scheduler.step()
         return self
