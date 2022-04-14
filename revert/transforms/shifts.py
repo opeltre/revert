@@ -1,14 +1,22 @@
 import torch
 
-def shift_all (stdev):
+def shift_all(stdev):
+    """
+        Inputs :
+            - stdev : standard deviation
+            - x : list of channels
+        Output :
+            - x_prime : the same list of channels (with all of them shifted)
+            - y : list of all size of shift for each channel
+    """
     def run_shift(x):
         N = len(x)
         Nc = x.shape[1]
         Npts = x.shape[-1]
         
-        #generate and convert to tensor
+        # generate and convert to tensor
         idx = torch.arange(32).repeat(Nc*N).view([Nc*N, 32])
-        # repeat for all data        
+        # generate the guass distribution
         y = torch.randn([N, Nc]) * stdev
         y = mod(y, 1)
         y = (y - y.mean([1])[:,None])
