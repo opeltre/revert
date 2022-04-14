@@ -4,12 +4,12 @@ def shift_all (stdev):
     def run_shift(x):
         N = len(x)
         Nc = x.shape[1]
+        Npts = x.shape[-1]
+        
         #generate and convert to tensor
         idx = torch.arange(32).repeat(Nc*N).view([Nc*N, 32])
         # repeat for all data        
         y = torch.randn([N, Nc]) * stdev
-        Npts = x.shape[-1]
-
         y = mod(y, 1)
         y = (y - y.mean([1])[:,None])
 
@@ -19,7 +19,6 @@ def shift_all (stdev):
         idx = (torch.arange(Nc*N)[:,None] * 32 + idx).flatten()
         x_prime = x.flatten()[idx].view([N, Nc, Npts])
         return x_prime, y
-    
     return run_shift
 
 def shift_one(x):
@@ -42,3 +41,6 @@ def shift_one(x):
         return torch.stack([shift_one(xi) for xi in x])
     else:
         raise TypeError("x must be of shape (N, Nc, Npts) or (Nc, Npts)")
+        
+def mod(x, m) :
+    return torch.sign(x) * ((torch.sign(x)*x) % m)
