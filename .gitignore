@@ -24,3 +24,6 @@ _*
 
 scripts-pcmri/patients_json
 scripts-pcmri/pcmri_tensor.pt
+
+*datasets*
+.vscode/
