@@ -1,5 +1,18 @@
 import torch
 
+def unshift(x, y):
+    N = len(x)
+    Nc = x.shape[1]
+    Npts = x.shape[-1]
+    # generate and convert to tensor
+    idx = torch.arange(Npts).repeat(Nc*N).view([Nc*N, Npts])
+    y = -y
+    y_index = (y * (Npts / 2)).flatten().long() 
+    idx = (idx + y_index[:,None]) % Npts
+    idx = (torch.arange(Nc*N)[:,None] * Npts + idx).flatten()
+    x_prime = x.flatten()[idx].view([N, Nc, Npts])
+    return x_prime
+
 def shift_all(stdev):
     """
         Inputs :
@@ -30,6 +43,7 @@ def shift_all(stdev):
         x_prime = x.flatten()[idx].view([N, Nc, Npts])
         return x_prime, y
     return run_shift
+
 
 def shift_one(x, y=None):
     """
