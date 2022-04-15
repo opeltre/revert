@@ -1,6 +1,15 @@
 import torch
 
 def unshift(x, y):
+    """
+    Action of channel-wise translations. 
+
+        Inputs: 
+            - x : (N, Nc, Npts) tensor
+            - y : (N, Nc) tensor in the range [-1, 1]
+        Output:
+            - x_prime : x shifted by -y, channel wise
+    """
     N = len(x)
     Nc = x.shape[1]
     Npts = x.shape[-1]
@@ -15,6 +24,8 @@ def unshift(x, y):
 
 def shift_all(stdev):
     """
+    Shift all channels by gaussian random offsets. 
+
         Inputs :
             - stdev : standard deviation
             - x : list of channels
@@ -23,7 +34,7 @@ def shift_all(stdev):
             - x_prime : the same list of channels (with all of them shifted)
             - y : list of all shift size for each channel
     """
-    def run_shift(x, y=None):
+    def run_shift(x):
         N = len(x)
         Nc = x.shape[1]
         Npts = x.shape[-1]
@@ -31,11 +42,10 @@ def shift_all(stdev):
         # generate and convert to tensor
         idx = torch.arange(Npts).repeat(Nc*N).view([Nc*N, Npts])
         # generate the guass distribution
-        if y is None :
-            y = torch.randn([N, Nc]) * stdev
-            y = mod(y, 1)
-            y = (y - y.mean([1])[:,None])
-
+        y = torch.randn([N, Nc]) * stdev
+        y = mod(y, 1)
+        y = (y - y.mean([1])[:,None])
+        
         y_index = (y * (Npts / 2)).flatten().long() 
 
         idx = (idx + y_index[:,None]) % Npts
@@ -47,6 +57,8 @@ def shift_all(stdev):
 
 def shift_one(x, y=None):
     """
+    Shift one channel by a uniform random offset. 
+
         Input:
             - x corresponds to a list of channels
             - y (optional) corresponds to the list of shifts to be applied (only one channel should be shifted)
