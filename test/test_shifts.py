@@ -20,7 +20,7 @@ two, y2 = shift_all(0.5)(x2)
 x3 = torch.rand(6, 32)
 y3 = torch.tensor([0 for _ in range(6)])
 shift = torch.randint(-16, 17, (1,)).item()
-nb_chan = torch.randint(0, len(x), (1,))
+nb_chan = torch.randint(0, len(x3), (1,))
 y3[nb_chan] = shift
 
 def unshift(stdev):
@@ -65,10 +65,10 @@ class TestShift(test.TestCase):
     # Test shift_one()
 
     def test_shift_one(self):
-        result_x, _ = shift_one(x, y)
-        for i in range(len(y)):
+        result_x, _ = shift_one(x3, y3)
+        for i in range(len(y3)):
             with self.subTest(i=i):
-                if y[i].item() == 0:
-                    self.assertClose(result_x[i], x[i])
+                if y3[i].item() == 0:
+                    self.assertClose(result_x[i], x3[i])
                 else:
-                    self.assertClose(result_x[i], x[i].roll(-y[i].item(), -1))
+                    self.assertClose(result_x[i], x3[i].roll(-y3[i].item(), -1))
