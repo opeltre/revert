@@ -1,10 +1,9 @@
-"verif très proche de null, reussir à remettre dans le bon sens avec le y"
-
-from revert.transforms import shift_all
+from revert.transforms import shift_all, shift_one
 
 import test
 import torch
 
+# shift_all()
 N = 500
 x = torch.arange(32).repeat(6).repeat(N).view([N, 6 ,32])
 one, y = shift_all(0.5)(x)
@@ -17,6 +16,12 @@ for i in range(N) :
 x2 = torch.tensor(x2)
 two, y2 = shift_all(0.5)(x2)
 
+# shift_one()
+x3 = torch.rand(6, 32)
+y3 = torch.tensor([0 for _ in range(6)])
+shift = torch.randint(-16, 17, (1,)).item()
+nb_chan = torch.randint(0, len(x), (1,))
+y3[nb_chan] = shift
 
 def unshift(stdev):
     def run_shift(x, y):
@@ -56,3 +61,14 @@ class TestShift(test.TestCase):
         result, _ = unshift(0.5)(two, y2)
         expect = x2
         self.assertClose(expect, result)
+
+    # Test shift_one()
+
+    def test_shift_one(self):
+        result_x, _ = shift_one(x, y)
+        for i in range(len(y)):
+            with self.subTest(i=i):
+                if y[i].item() == 0:
+                    self.assertClose(result_x[i], x[i])
+                else:
+                    self.assertClose(result_x[i], x[i].roll(-y[i].item(), -1))
