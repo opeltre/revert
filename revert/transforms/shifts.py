@@ -15,7 +15,7 @@ def shift_all(stdev):
         Npts = x.shape[-1]
         
         # generate and convert to tensor
-        idx = torch.arange(32).repeat(Nc*N).view([Nc*N, 32])
+        idx = torch.arange(Npts).repeat(Nc*N).view([Nc*N, Npts])
         # generate the guass distribution
         y = torch.randn([N, Nc]) * stdev
         y = mod(y, 1)
@@ -24,7 +24,7 @@ def shift_all(stdev):
         y_index = (y * (Npts / 2)).flatten().long() 
 
         idx = (idx + y_index[:,None]) % Npts
-        idx = (torch.arange(Nc*N)[:,None] * 32 + idx).flatten()
+        idx = (torch.arange(Nc*N)[:,None] * Npts + idx).flatten()
         x_prime = x.flatten()[idx].view([N, Nc, Npts])
         return x_prime, y
     return run_shift
