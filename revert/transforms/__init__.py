@@ -9,3 +9,4 @@ from .bounds import bound, mirror
 from .diff   import diff, jet, laplacian
 from .scholkmann import scholkmann, diff_scalogram, Troughs
 from .segment import segment, mask_center
+from .shifts import shift_all, shift_one, mod
