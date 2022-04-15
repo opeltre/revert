@@ -6,16 +6,6 @@ from math      import pi
 from torch.fft import fft, ifft
 
 
-def unshift(self, xs):
-    N  = xs.shape[1]
-    Fs = fft(xs, dim=1)
-    F1s = Fs[:,1]
-    phi = F1s.angle().mean()
-    rot = (torch.exp(torch.tensor(2j * pi * phi)) 
-        *  F1s.conj() / F1s.abs())
-    return ifft(rot * Fs)
-
-
 class Center (Transform):
 
     def __init__(self, order=0):
