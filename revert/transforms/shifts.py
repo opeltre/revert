@@ -5,11 +5,12 @@ def shift_all(stdev):
         Inputs :
             - stdev : standard deviation
             - x : list of channels
+            - y (optional) : list of all shift size for each channel to be applied
         Output :
             - x_prime : the same list of channels (with all of them shifted)
-            - y : list of all size of shift for each channel
+            - y : list of all shift size for each channel
     """
-    def run_shift(x):
+    def run_shift(x, y=None):
         N = len(x)
         Nc = x.shape[1]
         Npts = x.shape[-1]
@@ -17,9 +18,10 @@ def shift_all(stdev):
         # generate and convert to tensor
         idx = torch.arange(Npts).repeat(Nc*N).view([Nc*N, Npts])
         # generate the guass distribution
-        y = torch.randn([N, Nc]) * stdev
-        y = mod(y, 1)
-        y = (y - y.mean([1])[:,None])
+        if y is None :
+            y = torch.randn([N, Nc]) * stdev
+            y = mod(y, 1)
+            y = (y - y.mean([1])[:,None])
 
         y_index = (y * (Npts / 2)).flatten().long() 
 
