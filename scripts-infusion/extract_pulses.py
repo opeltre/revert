@@ -33,9 +33,10 @@ def main (model_state="pretrained.pt", Npulses=64, minutes=6):
     argmin  = Troughs(Npts, 50)
 
     # main loop
-    out = []
-    errors = []
-    for k in tqdm.tqdm(keys): 
+    out, good = [], []
+    bad = {"y_quant": [], "amp": [], "errors": []}
+    for k in tqdm.tqdm(keys):
+        keep = True
         evts = db.periods[k]
         file = db.get(k)
         try:
@@ -45,9 +46,19 @@ def main (model_state="pretrained.pt", Npulses=64, minutes=6):
             troughs = argmin(bp(icp))
             if icp.shape[0] != Npts:
                 raise RuntimeError("not enough points")
-            out += [select_pulses(bp(icp), troughs, Npulses, loss)]
-        except:
-            errors += [k]
+            if quantization_y(icp) >= .099: 
+                bad["y_quant"].append(k)
+                keep = False
+                continue
+            segments = select_pulses(bp(icp), troughs, Npulses, loss)
+            if amplitude_avg(segments[1]) <= 1:
+                bad["amp"].append(k)
+                keep = False
+            if keep:
+                out.append(segments)
+                good.append(k)
+        except Exception as e:
+            bad["errors"].append(k)
         file.close()
 
     # save output
@@ -57,13 +68,16 @@ def main (model_state="pretrained.pt", Npulses=64, minutes=6):
     data  = {ni: xi for xi, ni in zip(xs, names)}
     for n in names: 
         print(f"  + {n}\t: {list(data[n].shape)} tensor")
-    data["keys"]   = [k for k in keys if not k in errors] 
-    data["errors"] = errors
+    data["keys"] = good
+    data |= bad
     torch.save(data, f'{dest}')
     # save keys
     print(f"extracted {Npulses} pulses from {len(data['keys'])} recordings")
-    print(f"encountered {len(errors)} errors")
+    print(f"  - {len(bad['y_quant'])} bad Y-quantizations encountered")
+    print(f"  - {len(bad['amp'])} low amplitudes encountered")
+    print(f"  - {len(bad['errors'])} errors encountered")
 
+#--- Pulse selection
 
 def select_pulses (icp, troughs, Npulses, loss):
     Npts = icp.shape[-1]
@@ -104,5 +118,17 @@ def mixed_loss(losses, weights=None):
         return (z * weights[:,None]).sum([0]) / weights.sum()
     return loss
 
+#--- Bad recordings --- 
+
+def quantization_y(x): 
+    """ Return Y-quantization, should be below .1 """
+    dx = torch.diff(x)
+    nz = dx.nonzero().flatten()
+    return dx[nz].min()
+
+def amplitude_avg(x):
+    """ Return average amplitude of segments, should be above 1. """
+    return (x.max(1).values - x.min(1).values).mean()
+    
 if __name__ == '__main__':
     main()
