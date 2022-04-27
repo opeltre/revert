@@ -10,10 +10,12 @@ the [revert][revert] project.
 
 ## Install
 
+Install in editable mode via pip for changes to take effect without needing to reinstall:
 ```
 git clone https://github.com/opeltre/revert
-pip install revert
+cd revert && pip install -e ./
 ```
+Omit the `-e` option if you don't plan to change the code. 
 
 ## Running tests
 
@@ -26,7 +28,7 @@ cd test && python -m unittest
 
 ## Using notebooks
 
-For jupyter to look for locally installed packages you might need to 
+For jupyter to look for locally installed packages you _might_ need to 
 build a kernel:
 
 ```
