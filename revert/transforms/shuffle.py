@@ -2,13 +2,13 @@ import torch
 
 def unshuffle(x, y) :
     """
-    Take all the data and unshuffled them.
+    Unshuffle a batch of channels, applying the inverse of y.
     
         Inputs :
-            - x : (N, Nc, Npts) tensor (can also take (Nc, Npts) tensor)
-            - y : (N, Nc, Npts) tensor with all new index of each channel (can also take (Nc, Npts) tensor)
+            - x  : (N, Nc, Npts) or (Nc, Npts) tensor 
+            - y  : (N, Nc, Npts) or (Nc, Npts) long tensor, representing permutations.
         Output :
-            - x : x unshuffled by y 
+            - x' : action on x of the inverse of y. 
     """
     dim = len(x.shape)
 
@@ -32,13 +32,13 @@ def unshuffle(x, y) :
 
 def shuffle_all(x) :
     """
-    Take all the data and shuffle each channel
+    Shuffle channels by random permutations. 
     
         Inputs :
-            - x : (N, Nc, Npts) tensor (can also take (Nc, Npts) tensor)
+            - x : (N, Nc, Npts) or (Nc, Npts) tensor
         Output :
-            - x : same list but all channel shuffle on each row
-            - y : each new index for each channel
+            - x' : like x with randomly shuffled channels
+            - y  : applied permutations as (N, Nc, Npts) or (Nc, Npts) long tensor
     """
     dim = len(x.shape)
 
@@ -60,13 +60,13 @@ def shuffle_all(x) :
         
 def shuffle_two(x) :
     """
-    Take all the data and take two random channel and swap them
+    Transpose two random channels. 
     
         Inputs :
-            - x : (N, Nc, Npts) tensor (can also take (Nc, Npts) tensor)
+            - x : (N, Nc, Npts) or (Nc, Npts) tensor
         Output :
-            - x : same list but two channel swap on each row
-            - y : each new index for each channel
+            - x' : like x with two swapped channels 
+            - y  : applied permutations as (N, Nc, Npts) or (Nc, Npts) long tensor
     """
     dim = len(x.shape)
     
