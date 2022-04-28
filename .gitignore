@@ -1,6 +1,8 @@
 dist
 bib
-GENCI
+
+notebooks/*
+**.ipynb
 
 *.pt
 *.state
