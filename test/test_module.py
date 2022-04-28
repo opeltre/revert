@@ -15,6 +15,12 @@ f2 = ConvNet([[16, 12, 4],
 
 
 class TestConv(test.TestCase):
+    
+    def test_matmul(self):
+        model = f2 @ f1
+        result = tuple(model(x).shape)
+        expect = (N, 24, 8)
+        self.assertEqual(expect, result)
 
     def test_pipe(self): 
         model = Pipe(f1, f2)
