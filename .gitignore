@@ -6,6 +6,8 @@ notebooks/*
 
 *.pt
 *.state
+**.st
+**.log
 
 runs
 assets
