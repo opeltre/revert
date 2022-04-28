@@ -2,6 +2,7 @@ dist
 bib
 
 notebooks/*
+notebooks
 **.ipynb
 
 *.pt
