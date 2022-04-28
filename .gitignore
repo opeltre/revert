@@ -1,9 +1,13 @@
 dist
 bib
-GENCI
+
+notebooks/*
+**.ipynb
 
 *.pt
 *.state
+**.st
+**.log
 
 runs
 assets
