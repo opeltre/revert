@@ -10,6 +10,10 @@ def unshift(x, y):
         Output:
             - x_prime : x shifted by -y, channel wise
     """
+    dim = len(x.shape)
+    if dim == 2 :
+        x.unsqueeze_(0)
+    
     N = len(x)
     Nc = x.shape[1]
     Npts = x.shape[-1]
@@ -20,6 +24,9 @@ def unshift(x, y):
     idx = (idx + y_index[:,None]) % Npts
     idx = (torch.arange(Nc*N)[:,None] * Npts + idx).flatten()
     x_prime = x.flatten()[idx].view([N, Nc, Npts])
+    
+    if dim == 2 : 
+        return x_prime.squeeze(0)    
     return x_prime
 
 def shift_all(stdev):
@@ -35,6 +42,10 @@ def shift_all(stdev):
             - y : list of all shift size for each channel
     """
     def run_shift(x):
+        dim = len(x.shape)
+        if dim == 2 :
+            x.unsqueeze_(0)
+            
         N = len(x)
         Nc = x.shape[1]
         Npts = x.shape[-1]
@@ -51,6 +62,9 @@ def shift_all(stdev):
         idx = (idx + y_index[:,None]) % Npts
         idx = (torch.arange(Nc*N)[:,None] * Npts + idx).flatten()
         x_prime = x.flatten()[idx].view([N, Nc, Npts])
+        
+        if dim == 2 : 
+            return x_prime.squeeze(0), y
         return x_prime, y
     return run_shift
 
