@@ -10,7 +10,7 @@ from revert.infusion import Dataset
 #--- CLI arguments ---
 
 dbname  = sys.argv[1] if len(sys.argv) > 1 else '2016'
-out     = sys.argv[2] if len(sys.argv) > 2 else f'periods-{dbname}.json'
+out     = sys.argv[2] if len(sys.argv) > 2 else f'./periods-{dbname}.json'
 db      = Dataset(dbname)
 Ntot    = len(db.ls())
 
@@ -64,7 +64,7 @@ print("\t" + f"".join([f"     {100*Ni/Ntot:.1f}%    " for Ni in Ns]))
 #--- Dump data ---
 
 print(f"\n--- Writing output to {out}")
-with open(f"./{out}", "w") as out:
+with open(f"{out}", "w") as out:
     json.dump(data, out, indent=4)
 
 #--- Check conflicts --- 
