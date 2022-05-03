@@ -4,7 +4,7 @@
 import cli_tools as cli
 import torch
 
-from revert.models import BarlowTwins, ConvNet, View 
+from revert.models import BarlowTwins, ConvNet, View, cross_correlation
 # augmentations
 from revert.transforms import noise, vshift, scale
 # dataset 
@@ -53,7 +53,7 @@ data = (full[:2500]
             .transpose(0, 1))
 
 data = shuffle(1, data)
-print(f"Number of pulse pairs: {data.shape[1]}")
+print(f"\nNumber of pulse pairs: {data.shape[1]}")
 
 #==================================================
 
@@ -67,7 +67,7 @@ params = [
         {'transforms': [t_comp],        'epochs': 20, 'lr': 1e-3}
 ]
 
-def episodes (params, defaults=None):
+def main (params, defaults=None):
 
     twins.cuda()
 
@@ -144,4 +144,5 @@ def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
 
 if __name__ == "__main__":
     print(f'\ntwins:\n {twins}')
-    pass
+    main(params)
+    twins.save(args.output)
