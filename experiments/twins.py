@@ -1,25 +1,50 @@
 # TODO
 #   - log hparams to tensorboard / jsons
 
+import cli_tools as cli
 import torch
-import matplotlib.pyplot as plt
 
-from revert.models     import ND, ConvNet, BarlowTwins, cross_correlation, View
+from revert.models import BarlowTwins, ConvNet, View 
+# augmentations
 from revert.transforms import noise, vshift, scale
-from revert            import infusion
+# dataset 
+from revert import infusion
+
+from torch import nn
+from torch.optim import SGD, Adam
+from torch.optim.lr_scheduler import ExponentialLR
+from torch.utils.tensorboard import SummaryWriter
+
+args  = cli.read_args(cli.arg_parser(prefix='twins'))
+
+#--- Model ---
+
+layers  = [[64, 1,  8],
+           [8,  16, 1],
+           [1,  32, 1]]
+
+model = ConvNet(layers, pool='max') @ nn.AvgPool1d(2)
+
+#--- Expander ---
+
+dim_z = 64
+head  = View([dim_z]) @ ConvNet([[1, 32,    1], 
+                                 [1, dim_z, 1]])
+
+#--- Twins ---
+
+twins = BarlowTwins(head @ model) 
+
+twins.writer = SummaryWriter(args.writer)
+
+if args.input: 
+    twins = twins.load(args.input)
+
+#--- Dataset : to cleanup! ---
 
 def shuffle (dim, tensor):
     sigma = torch.randperm(tensor.shape[dim], device=tensor.device)
     return tensor.index_select(dim, sigma)
-
-import argparse, sys
-
-from torch.optim import SGD, Adam
-from torch.optim.lr_scheduler import ExponentialLR
-
-from torch.utils.tensorboard import SummaryWriter
-
-#--- Dataset ---
 
 full = infusion.Pulses("full").pulses
 data = (full[:2500]
@@ -29,37 +54,6 @@ data = (full[:2500]
 
 data = shuffle(1, data)
 print(f"Number of pulse pairs: {data.shape[1]}")
-
-#--- Models ---
-
-layers = [[128, 1,   8],
-          [16,  16,  8],
-          [8,   32,  8],
-          [1,   64,  1]]
-
-model = View([-1]) @ ConvNet(layers, pool='max')
-
-twins = BarlowTwins(model)
-
-
-#===== State dict / logdir as CLI arguments ===== 
-#
-#   python twins.py -s "model.state" -w "runs/twins-xx"
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--state', '-s', help="load state dict", type=str)
-parser.add_argument('--writer', '-w', help="tensorboard writer", type=str)
-args = parser.parse_args()
-
-# model state 
-if args.state: 
-    print(f"Loading model state from '{args.state}'")
-    st = torch.load(args.state)
-    model.load_state_dict(st)
-
-# writer name
-log_dir = args.writer if args.writer else None
-if log_dir: twins.writer = SummaryWriter(log_dir)
 
 #==================================================
 
@@ -74,7 +68,9 @@ params = [
 ]
 
 def episodes (params, defaults=None):
-    
+
+    twins.cuda()
+
     defaults = {'epochs':  25,
                 'n_batch': 256,
                 'lr':      1e-3,
@@ -109,6 +105,8 @@ def episodes (params, defaults=None):
             twins.writer.add_image(n, (1 + C) / 2, dataformats="HW")
         free(xs, ys, C)
 
+#=== Other helpers === 
+
 #--- Cuda free ---
 
 def free (*xs):
@@ -136,32 +134,6 @@ def pretraining (transforms, n_batch=128, n_it=1250):
 def training (n_batch=128): 
     return batch(n_batch, data)
 
-
-#=== Max activating ===
-
-from math import ceil 
-
-plt.style.use('seaborn')
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-
-def argmax_figs (x, P=6):
-
-    y = twins.model(x).T
-    val, ids = torch.sort(y, descending=True, dim=1)
-
-    w, h = 4, ceil(y.shape[0] // 4)
-
-    fig = plt.figure(figsize=((w + 1)*2, h + 2))
-    for j, idj in enumerate(ids[:,:P]):
-        xmax = x.index_select(0, idj)
-        ax = plt.subplot(h, w, j + 1)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        plt.plot(xmax.T, color=colors[j % len(colors)])
-
-    return fig
-    
-
 #--- Synthetic pairs --- 
 
 def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
@@ -169,15 +141,6 @@ def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
     x  = ND.map(ps, 128)
     xs = torch.stack([x, x + 0.25 * torch.randn(x.shape)])
     return xs
-
-#--- Plot input pairs ---
-
-def plot_pairs (xs, n=5):
-    colors = ["#da3", "#bac", "#8ac", "#32a", "#2b6"]
-    for i in range(n):
-        plt.plot(xs[0,i], color=colors[i % len(colors)], linewidth=1)
-        plt.plot(xs[1,i], color=colors[i % len(colors)], linestyle="dotted", linewidth=1)
-    plt.show()
 
 if __name__ == "__main__":
     print(f'\ntwins:\n {twins}')
