@@ -1,6 +1,6 @@
 import torch
 
-from revert.models import Module
+from .module import Module
 
 class View(Module):
     """ 
