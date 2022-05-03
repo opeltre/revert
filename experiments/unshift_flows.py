@@ -26,9 +26,11 @@ def main(defaults=None, stdev=0.5):
     else : 
         defaults = defaults | { 'stdev' : stdev }
 
+    # take all the data
     dataLoad = getData(defaults['stdev']) 
+    # generate the model
     model = getModel()
-    #totalName, modelExist = generate_files(model)
+    # find the path to save 
     args = arg_parse()
     path, name = arg_verifier(args)
         
@@ -49,7 +51,8 @@ def main(defaults=None, stdev=0.5):
     #save the hyper parameter in a json file
     with open(path + "runs/"+ name, 'w') as js:
         json.dump(defaults, js)
-
+    
+    #save the head
     model.modules[-1].save(path + "models/" + name)
             
 #--- Cuda free ---
