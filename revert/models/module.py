@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import os
 
 class Module (nn.Module):
     """ Module subclass for writing to tensorboard during training.
@@ -57,6 +58,32 @@ class Module (nn.Module):
             return Pipe(*other.modules, self)
         return Pipe(other, self)
 
+    @classmethod 
+    def load (cls, path, env="REVERT_MODELS"):
+        """
+        Load module state, checking class name. 
+
+        If the environment variable `env` is defined, then 
+        relative paths will be understood from it. 
+
+        """
+        if not os.path.isabs(path) and env in os.environ: 
+            path = os.path.join(env, path)
+        data = torch.load(path)
+        if not isinstance(data, cls): 
+            raise TypeError(f'Loaded data is not of type {cls}')
+        return data
+
+    def save (self, path, env="REVERT_MODELS"):
+        """ 
+        Save module state.
+
+        If the environment variable `env` is defined, then 
+        relative paths will be understood from it. 
+        """
+        if not os.path.isabs(path) and env in os.environ: 
+            path = os.path.join(env, path)
+        torch.save(self, path)
 
 
 class Pipe (Module):

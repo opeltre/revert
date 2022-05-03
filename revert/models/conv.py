@@ -16,15 +16,6 @@ class Conv1d(nn.Conv1d):
 
 class ConvNet(Module):
     """ 1D Convolutional network with periodic boundary conditions."""
-
-    @classmethod
-    def load(cls, path):
-        """ Load model from a state file. 
-
-            See model.save(path)
-        """
-        st = torch.load(path)
-        return cls(**st)
     
     def __init__(self, layers=[], activation=tanh, pool='max', 
                        dropout=0.0, state=None):
@@ -76,9 +67,3 @@ class ConvNet(Module):
         del xs
         torch.cuda.empty_cache()
         return y
-                
-
-    def save (self, path):
-        """ Save model data and state """
-        d = self.data | {"state": self.state_dict()}
-        torch.save(d, path)
