@@ -75,8 +75,8 @@ class ConvNet(Module):
         y = xs[-1]
         del xs
         torch.cuda.empty_cache()
-        return (y if y.shape[-1] > 1
-                  else y.reshape([n_b, -1]))
+        return y
+                
 
     def save (self, path):
         """ Save model data and state """
