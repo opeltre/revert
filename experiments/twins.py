@@ -4,7 +4,7 @@
 import torch
 import matplotlib.pyplot as plt
 
-from revert.models     import ND, ConvNet, BarlowTwins, cross_correlation
+from revert.models     import ND, ConvNet, BarlowTwins, cross_correlation, View
 from revert.transforms import noise, vshift, scale
 from revert            import infusion
 
@@ -37,7 +37,7 @@ layers = [[128, 1,   8],
           [8,   32,  8],
           [1,   64,  1]]
 
-model = ConvNet(layers, pool='max')
+model = View([-1]) @ ConvNet(layers, pool='max')
 
 twins = BarlowTwins(model)
 
