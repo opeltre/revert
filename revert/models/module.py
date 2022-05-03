@@ -73,6 +73,9 @@ class Pipe (Module):
         head = modules[-1]
         if "loss" in head.__dir__():
             self.loss = head.loss
+            
+        for i, mi in enumerate(self.modules): 
+            setattr(self, f'module{i}', mi)
     
     def forward (self, x):
         xs = [x]
