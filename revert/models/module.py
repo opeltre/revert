@@ -16,7 +16,7 @@ class Module (nn.Module):
     """
     def __init__(self) :
         super().__init__()
-        self.writer = {"Loss" : [], "Step": []}
+        self.writer = {}
 
     def loss_on (self, x, *ys):
         """ Model loss on input """
@@ -50,9 +50,13 @@ class Module (nn.Module):
     def write(self, name, data, nit):
         """ Write a scalar to tensorboard."""
         if isinstance(self.writer, dict): 
-            self.writer[name].append(data.item())
-            self.writer["Step"].append(nit)
-        elif 'writer' in self.__dir__() and self.writer:
+            if name in self.writer :
+                self.writer[name]["Val"].append(data.item())
+                self.writer[name]["Step"].append(nit)
+            else :
+                self.writer[name] = {"Val" : [], "Step" : []}
+                self.write(name, data, nit)
+        elif 'writer' in self.__dir__() and self.writer and isinstance(self.writer, SummaryWriter):
             self.writer.add_scalar(name, data, global_step=nit)
     
     
