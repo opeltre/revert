@@ -7,7 +7,7 @@ def cross_correlation (ya, yb):
     """ Cross-correlation of N_batch x N tensors. """
     ya, yb = ya - ya.mean([0]), yb - yb.mean([0])
     yab = ya.T @ yb
-    return yab / (ya.norm(dim=0) * (yb.norm(dim=0)[:,None]))
+    return yab / (ya.norm(dim=0)[:,None] * yb.norm(dim=0))
 
 
 class BarlowTwins (Module):

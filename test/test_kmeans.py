@@ -28,7 +28,7 @@ class TestKMeans (test.TestCase):
         corners = corners.float()
         cdist = torch.cdist(km.centers, corners)
         idx = cdist.sort(dim=0).indices[:,0]
-        self.assertClose(km.centers, corners[idx], tol=.2)
+        self.assertClose(km.centers[idx], corners, tol=.2)
         # Expect clusters to match cluster means
         means = x.view([-1, n_clusters, dim]).mean([0])
-        self.assertClose(km.centers, means[idx])
+        self.assertClose(km.centers[idx], means, tol=1e-4)
