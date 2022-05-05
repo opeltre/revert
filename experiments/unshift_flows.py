@@ -62,16 +62,20 @@ if args.input :
 def main(defaults=None, stdev=0.5):
         
     if defaults is None : 
-        defaults = {'epochs':  1,
+        defaults = {'epochs':  5,
                     'n_batch': 128,
                     'lr':      1e-3,
                     'gamma':   0.8,
                     'n_it':    3750,
-                    'stdev' : stdev
+                    'stdev' : stdev,
+                    'tensorboard' : True
                     } | (defaults if defaults else {})
     else : 
         defaults = defaults | { 'stdev' : stdev }
         
+    if (defaults["tensorboard"]) :
+        convnet.writer = SummaryWriter(args.writer)
+    
     # take all the data
     dataLoad = getData(defaults['stdev']) 
         
