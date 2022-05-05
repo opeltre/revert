@@ -64,7 +64,7 @@ print("\t" + f"".join([f"     {100*Ni/Ntot:.1f}%    " for Ni in Ns]))
 #--- Dump data ---
 
 print(f"\n--- Writing output to {out}")
-with open(f"./{out}", "w") as out:
+with open(f"{out}", "w") as out:
     json.dump(data, out, indent=4)
 
 #--- Check conflicts --- 
