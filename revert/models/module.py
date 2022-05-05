@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import os
+from torch.utils.tensorboard import SummaryWriter
 
 class Module (nn.Module):
     """ Module subclass for writing to tensorboard during training.
@@ -13,6 +14,9 @@ class Module (nn.Module):
         write loss values to tensorboard during training.
         Overwrite `model.write` to log such values elsewhere.
     """
+    def __init__(self) :
+        super().__init__()
+        self.writer = {"Loss" : [], "Step": []}
 
     def loss_on (self, x, *ys):
         """ Model loss on input """
@@ -42,12 +46,16 @@ class Module (nn.Module):
             if scheduler:
                 scheduler.step()
         return self
-
+            
     def write(self, name, data, nit):
         """ Write a scalar to tensorboard."""
-        if 'writer' in self.__dir__() and self.writer:
+        if isinstance(self.writer, dict): 
+            self.writer[name].append(data.item())
+            self.writer["Step"].append(nit)
+        elif 'writer' in self.__dir__() and self.writer:
             self.writer.add_scalar(name, data, global_step=nit)
-
+    
+    
     def __matmul__ (self, other): 
         """ Composition of modules. """
         if isinstance(other, Pipe) and isinstance(self, Pipe): 
