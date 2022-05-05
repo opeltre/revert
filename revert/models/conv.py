@@ -67,3 +67,6 @@ class ConvNet(Module):
         del xs
         torch.cuda.empty_cache()
         return y
+    
+    def loss(self, y, y_tgt):
+        return ((y - y_tgt)**2).mean()

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import os
+from torch.utils.tensorboard import SummaryWriter
 
 class Module (nn.Module):
     """ Module subclass for writing to tensorboard during training.
@@ -13,6 +14,9 @@ class Module (nn.Module):
         write loss values to tensorboard during training.
         Overwrite `model.write` to log such values elsewhere.
     """
+    def __init__(self) :
+        super().__init__()
+        self.writer = {}
 
     def loss_on (self, x, *ys):
         """ Model loss on input """
@@ -35,19 +39,27 @@ class Module (nn.Module):
                         else self.loss_on(*x))
                 loss.backward()
                 optimizer.step()
-                l += loss.detach()
+                if w: l += loss.detach()
                 if w and nit % nw == 0 and nit > 0:
                     self.write(w, l / nw, nit + e * N_it)
                     l = 0
             if scheduler:
                 scheduler.step()
         return self
-
+            
     def write(self, name, data, nit):
-        """ Write a scalar to tensorboard."""
-        if 'writer' in self.__dir__() and self.writer:
+        """ Write a scalar to tensorboard / module.writer dictionnary. """
+        if isinstance(self.writer, dict): 
+            if name in self.writer :
+                self.writer[name]["Val"].append(data.item())
+                self.writer[name]["Step"].append(nit)
+            else :
+                self.writer[name] = {"Val" : [], "Step" : []}
+                self.write(name, data, nit)
+        elif isinstance(self.writer, SummaryWriter):
             self.writer.add_scalar(name, data, global_step=nit)
-
+    
+    
     def __matmul__ (self, other): 
         """ Composition of modules. """
         if isinstance(other, Pipe) and isinstance(self, Pipe): 
