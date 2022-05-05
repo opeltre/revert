@@ -97,10 +97,7 @@ class Pipe (Module):
         """
         super().__init__()
         self.modules = modules
-        head = modules[-1]
-        if "loss" in head.__dir__():
-            self.loss = head.loss
-            
+        
         for i, mi in enumerate(self.modules): 
             setattr(self, f'module{i}', mi)
     
@@ -112,3 +109,6 @@ class Pipe (Module):
         del xs
         torch.cuda.empty_cache()
         return y
+    
+    def loss(self, y, *ys): 
+        return self.modules[-1].loss(y, *ys)
