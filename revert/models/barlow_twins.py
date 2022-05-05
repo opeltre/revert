@@ -8,7 +8,7 @@ def norm2 (t, dim=None):
     return torch.sqrt((t ** 2).sum(dim)) 
 
 def cross_correlation (ya, yb):
-    """ Cross-correlation of N_batch x N """
+    """ Cross-correlation of N_batch x N tensors. """
     ya, yb = ya - ya.mean([0]), yb - yb.mean([0])
     yab = ya[:,:,None] @ yb[:,None,:]
     return yab.sum(dim=[0]) / (norm2(ya, [0]) * norm2(yb, [0]))
