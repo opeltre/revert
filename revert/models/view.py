@@ -19,5 +19,5 @@ class View(Module):
 
     def forward(self, input):
         """ Reshape the input. """
-        out = input.view([-1, *self.shape])
+        out = input.view([input.shape[0], *self.shape])
         return out
