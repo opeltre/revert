@@ -2,14 +2,21 @@ import torch
 import os
 import json
 import tqdm
+import sys
 
 from revert import infusion
 from revert.models     import ConvNet
 from revert.transforms import filter_spikes, bandpass, Troughs, diff
 from revert.transforms import segment, mask_center
 
+if len(sys.argv) > 1:
+    label  = sys.argv[1]
+else:
+    print("Usage : python extract_pulses.py [label]")
+    sys.exit(1)
+
 dbname = "full"
-dest   = "baseline-full.pt"
+dest   = label + ".pt"
 fs = 100
 
 if "INFUSION_DATASETS" in os.environ and not os.path.isabs(dest):
@@ -23,15 +30,13 @@ def main (model_state=None, Npulses=64, minutes=6):
 
     # model variation losses
     print(f"loading model from '{model_state}'" if model_state else "model = Id")
-    model = (ConvNet.load(model_state) 
-                if model_state
-                else lambda x:x)
+    model = (ConvNet.load(model_state) if model_state else lambda x: x)
     losses = [mean_loss(model), diff_loss(model)]
     loss = mixed_loss(losses)
 
-    # files with baseline
-    print(f"filtering files with 'Baseline' timestamps")
-    keys = db.filter(lambda f: db.periods[f.key]["Baseline"])
+    # files with {label}
+    print(f"filtering files with '{label}' timestamps")
+    keys = db.filter(lambda f: db.periods[f.key][label])
 
     # filters and peak detection 
     print(f"extracting pulses from {len(keys)} recordings")
@@ -47,7 +52,7 @@ def main (model_state=None, Npulses=64, minutes=6):
         evts = db.periods[k]
         file = db.get(k)
         try:
-            i0 = int(100 * (evts["Baseline"][0] - evts["start"]))
+            i0 = int(100 * (evts[label][0] - evts["start"]))
             icp = file.icp(i0, Npts)
             icp = filter_spikes(icp)[0]
             troughs = argmin(bp(icp))
@@ -143,4 +148,4 @@ def amplitude_avg(x):
     return (x.max(1).values - x.min(1).values).mean()
     
 if __name__ == '__main__':
-    main()
+    main(model_state = None)
