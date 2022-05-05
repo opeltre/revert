@@ -10,7 +10,7 @@ from revert.infusion import Dataset
 #--- CLI arguments ---
 
 dbname  = sys.argv[1] if len(sys.argv) > 1 else '2016'
-out     = sys.argv[2] if len(sys.argv) > 2 else f'./periods-{dbname}.json'
+out     = sys.argv[2] if len(sys.argv) > 2 else f'periods-{dbname}.json'
 db      = Dataset(dbname)
 Ntot    = len(db.ls())
 
