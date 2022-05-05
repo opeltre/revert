@@ -7,8 +7,8 @@ from tqdm import tqdm
 import torch
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--json', '-j', help="Map PCMRI files to tensor (.pt)", action='store_true')
-parser.add_argument('--torch', '-t', help="Map PCMRI files to JSON files", action='store_true')
+parser.add_argument('--json', '-j', help="Map PCMRI files to JSON files", action='store_true')
+parser.add_argument('--torch', '-t', help="Map PCMRI files to tensor (.pt)", action='store_true')
 args = parser.parse_args()
 
 if not args.json and not args.torch:

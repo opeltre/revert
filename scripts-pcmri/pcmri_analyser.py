@@ -8,6 +8,7 @@ parser.add_argument('--error', '-e', nargs=1, help="Copy all the exams having an
 args = parser.parse_args()
 
 if args.error:
+    # Use an env. variable instead of 'patients_json/'
     if not os.path.isdir('patients_json/'):
         raise OSError("The patients_json/ folder does not exist. Generate it with pcmri_to_tensor.py using the --json argument.")
     if os.path.isdir(args.error[0]):
@@ -50,13 +51,14 @@ for patient in db.getAll("*"):
             inters[list_str] = 1
 
         if args.error:
-            os.link("patients_json/"+patient.id+".json", "../../errors/"+patient.id+".json")
+            # Use an env. variable instead of 'patients_json/'
+            os.link(os.path.join("patients_json/", f"{patient.id}.json"), os.path.join(args.error[0], f"{patient.id}.json"))
 
 print("Total missing:")
 types.update(other_types)
 for type, val in types.items():
-    print("{}: {}".format(type, val))
+    print(f"{type}: {val}")
 print("\n--------------------\n")
 print("Intersection:")
 for key, value in sorted(inters.items(), key=lambda kv: kv[1], reverse=True):
-    print("{}: {}".format(key, value))
+    print(f"{key}: {value}")
