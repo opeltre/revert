@@ -39,7 +39,7 @@ class Module (nn.Module):
                         else self.loss_on(*x))
                 loss.backward()
                 optimizer.step()
-                l += loss.detach()
+                if w: l += loss.detach()
                 if w and nit % nw == 0 and nit > 0:
                     self.write(w, l / nw, nit + e * N_it)
                     l = 0
@@ -48,7 +48,7 @@ class Module (nn.Module):
         return self
             
     def write(self, name, data, nit):
-        """ Write a scalar to tensorboard."""
+        """ Write a scalar to tensorboard / module.writer dictionnary. """
         if isinstance(self.writer, dict): 
             if name in self.writer :
                 self.writer[name]["Val"].append(data.item())
@@ -56,7 +56,7 @@ class Module (nn.Module):
             else :
                 self.writer[name] = {"Val" : [], "Step" : []}
                 self.write(name, data, nit)
-        elif 'writer' in self.__dir__() and self.writer and isinstance(self.writer, SummaryWriter):
+        elif isinstance(self.writer, SummaryWriter):
             self.writer.add_scalar(name, data, global_step=nit)
     
     
