@@ -4,7 +4,9 @@ import torch
 from revert.models import KMeans
 
 n_clusters = 4
-dim = 2
+dim  = 2
+n_it = 3000
+eps  = 1e-6
 
 def makeClusters(stdev=0.1, n=100):
     """ Generate n points close to each corner of a square. """
@@ -18,7 +20,7 @@ class TestKMeans (test.TestCase):
     def test_fit(self):
         corners, x   = makeClusters()
         km = KMeans(n_clusters)
-        km.fit(x)
+        km.fit(x, eps=eps, n_it=n_it)
         y = km.predict(x).float().view([-1, n_clusters, dim])
         # Expect prediction to be constant across clusters 
         result = y - y.mean([0])
