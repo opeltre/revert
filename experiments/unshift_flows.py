@@ -1,21 +1,13 @@
-from revert.models import ConvNet, Module
+from revert.models import ConvNet, Pipe
+from revert.transforms import shift_all
+
 from experiments import arg_parser, read_args
 
-from torch.optim import SGD, Adam
+from torch.optim import  Adam
 from torch.optim.lr_scheduler import ExponentialLR
-
-import torch
-
-from revert.models import ConvNet, Module
-
-from torch.optim import SGD, Adam
-from torch.optim.lr_scheduler import ExponentialLR
-from revert.transforms import shift_all
-from revert.models import ConvNet, Pipe
 
 from torch.utils.data import TensorDataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
 
 import torch 
 
@@ -31,7 +23,6 @@ def getData(stdev) :
     data_loader = DataLoader(data_dataset, shuffle=True, batch_size=1)
     
     return data_loader
-
 
 #==================================================
 
@@ -61,6 +52,7 @@ if args.input :
 
 def main(defaults=None, stdev=0.5):
         
+    # default parameters
     if defaults is None : 
         defaults = {'epochs':  5,
                     'n_batch': 128,
@@ -68,11 +60,12 @@ def main(defaults=None, stdev=0.5):
                     'gamma':   0.8,
                     'n_it':    3750,
                     'stdev' : stdev,
-                    'tensorboard' : True
+                    'tensorboard' : False
                     } | (defaults if defaults else {})
     else : 
         defaults = defaults | { 'stdev' : stdev }
-        
+    
+    # create the tensorboard if ask
     if (defaults["tensorboard"]) :
         convnet.writer = SummaryWriter(args.writer)
     
@@ -83,6 +76,7 @@ def main(defaults=None, stdev=0.5):
     optim = Adam(convnet.parameters(), lr=defaults['lr'])
     lr    = ExponentialLR(optim, gamma=defaults['gamma'])
            
+    # training phase
     convnet.fit(dataLoad, optim, lr, epochs=defaults['epochs'], w="Loss")
     free(optim, lr)
      
