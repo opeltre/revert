@@ -9,6 +9,9 @@ class TestCase (unittest.TestCase):
         if isinstance(v, torch.LongTensor):
             v = v.float()
         N = torch.tensor(u.shape).prod()
-        return self.assertTrue((u - v).norm() < N * tol)
+        dist = (u - v).norm() 
+        if dist >= N * tol: 
+            print(f"Error {dist / N} >= tolerance {tol}")
+        return self.assertTrue(dist < N * tol)
 
 main = unittest.main
