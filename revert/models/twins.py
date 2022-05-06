@@ -97,7 +97,8 @@ class VICReg (Twins):
         Where y, y' are twin outputs and i, j denote latent space dimensions.
         """
         losses = torch.stack([self.loss_v(y), self.loss_i(y), self.loss_c(y)])
-        return (self.coeffs * losses).sum()
+        coeffs = self.coeffs.to(losses.device)
+        return (coeffs * losses).sum()
 
     def loss_v(self, y, eps=1e-6):
         """ Variance regularisation loss. """
@@ -115,5 +116,5 @@ class VICReg (Twins):
         """ Covariance criterion, preventing redundancies. """
         dim  = y.shape[-1]
         corr = self.xcorr(y)
-        mask = 1 - torch.eye(y.shape[0])
+        mask = 1 - torch.eye(y.shape[-1], device=y.device)
         return (mask * corr).sum() / (2 * dim)
