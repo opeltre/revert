@@ -32,10 +32,13 @@ class Twins (Module):
         ya, yb = self.model(xa), self.model(xb)
         return torch.stack([ya, yb], dim=1)
 
-    def cross_corr (self, x):
+    def xcorr (self, y):
         """ Cross correlation matrix of twin outputs. """
-        y = self(x)
         return cross_correlation(y[:,0], y[:,1])
+
+    def xcorr_on (self, x):
+        """ Cross correlation matrix of outputs from inputs. """
+        return self.xcorr(self(x))
 
 
 class BarlowTwins (Twins):
@@ -60,7 +63,7 @@ class BarlowTwins (Twins):
         weighted by `twins.diag`.
         """
         n_out = y.shape[-1]
-        C = cross_correlation(*y)
+        C = self.xcorr(y)
         I = torch.eye(n_out, device=C.device)
         w = self.diag
         loss_mask = 1 + (w - 1) * I
@@ -111,6 +114,6 @@ class VICReg (Twins):
     def loss_c(self, y):
         """ Covariance criterion, preventing redundancies. """
         dim  = y.shape[-1]
-        corr = cross_correlation(y[:,0], y[:,1])
+        corr = self.xcorr(y)
         mask = 1 - torch.eye(y.shape[0])
         return (mask * corr).sum() / (2 * dim)

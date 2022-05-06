@@ -92,6 +92,8 @@ def read_args(parser, prefix='module'):
 
     return args
 
+def parse_args(prefix='module'): 
+    return read_args(arg_parser(prefix), prefix)
 
 if __name__ == '__main__': 
     args = read_args(arg_parser())

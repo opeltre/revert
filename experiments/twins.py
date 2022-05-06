@@ -15,7 +15,7 @@ from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.tensorboard import SummaryWriter
 
-args  = cli.read_args(cli.arg_parser(prefix='twins'))
+args  = cli.parse_args('btwins:32')
 
 #--- Model ---
 
@@ -49,11 +49,10 @@ def shuffle (dim, tensor):
 full = infusion.Pulses("full").pulses
 data = (full[:2500]
             .view([2500, -1, 2, 128])
-            .view([-1, 2, 128])
-            .transpose(0, 1))
+            .view([-1, 2, 128]))
 
-data = shuffle(1, data)
-print(f"\nNumber of pulse pairs: {data.shape[1]}")
+data = shuffle(0, data)
+print(f"\nNumber of pulse pairs: {data.shape[0]}")
 
 #==================================================
 
@@ -79,6 +78,7 @@ def main (params, defaults=None):
                 } | (defaults if defaults else {})
 
     for i, p in enumerate(params):
+        print(f'\n[Episode {i}]:')
         p = defaults | p 
 
         #--- data ---
@@ -98,12 +98,11 @@ def main (params, defaults=None):
         #--- cross correlation ---
         with torch.no_grad():
             n = f'Cross correlation/{name}'
-            xs = xs.transpose(0, 1).view([2, -1, 128])
-            xs = shuffle(1, xs)[:,:2500]
-            ys = twins(xs)
-            C = cross_correlation(*ys)
+            xs = xs.view([-1, 2, 128])
+            xs = shuffle(0, xs)[:2500]
+            C = twins.xcorr_on(xs)
             twins.writer.add_image(n, (1 + C) / 2, dataformats="HW")
-        free(xs, ys, C)
+        free(xs, C)
 
 #=== Other helpers === 
 
@@ -116,17 +115,17 @@ def free (*xs):
 #--- Batch --- 
 
 def batch (n_batch, xs):
-    n_it = xs.shape[1] // n_batch
-    return (xs[:,: n_it * n_batch]
-            .view([2, n_it, n_batch, 128])
-            .transpose(0, 1))
+    """ Split in batches along first dimension. """
+    n_it = xs.shape[0] // n_batch
+    tail = xs.shape[1:]
+    return (xs[: n_it * n_batch]
+            .view([n_it, n_batch, *tail]))
 
 #--- Augmented pairs ---
 
 def pretraining (transforms, n_batch=128, n_it=1250):
-    
     x  = shuffle(0, data.view([-1, 128]))[:n_it * n_batch] 
-    xs = torch.cat([t.pair(x) for t in transforms], 1)
+    xs = torch.cat([t.pair(x, 1) for t in transforms], 1)
     return batch(n_batch, xs)
 
 #--- Real pairs --- 
@@ -145,4 +144,5 @@ def noisy_pairs (n_samples = 2 << 13, n_modes = 6):
 if __name__ == "__main__":
     print(f'\ntwins:\n {twins}')
     main(params)
+    twins.writer.close()
     twins.save(args.output)
