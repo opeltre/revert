@@ -4,7 +4,7 @@
 import cli_tools as cli
 import torch
 
-from revert.models import BarlowTwins, ConvNet, View, cross_correlation
+from revert.models import BarlowTwins, VICReg, ConvNet, View
 # augmentations
 from revert.transforms import noise, vshift, scale
 # dataset 
@@ -15,7 +15,7 @@ from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.tensorboard import SummaryWriter
 
-args  = cli.parse_args('btwins:32')
+args  = cli.parse_args('vicreg:32')
 
 #--- Model ---
 
@@ -33,7 +33,8 @@ head  = View([dim_z]) @ ConvNet([[1, 32,    1],
 
 #--- Twins ---
 
-twins = BarlowTwins(head @ model) 
+
+twins = VICReg(head @ model) 
 
 twins.writer = SummaryWriter(args.writer)
 
