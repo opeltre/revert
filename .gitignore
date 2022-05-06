@@ -21,6 +21,8 @@ __pycache
 experiments/img
 experiments/_*
 experiments/st
+experiments/models
+experiments/logs
 
 build
 _*

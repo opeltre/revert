@@ -11,8 +11,8 @@ class Transform :
     def __matmul__(self, other):
         return Transform(lambda x: self(other(x)))
 
-    def pair(self, arg):
-        return torch.stack([arg, self(arg)])
+    def pair(self, arg, dim=0):
+        return torch.stack([arg, self(arg)], dim=dim)
 
 def vshift (amp):
     return Transform(
