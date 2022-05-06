@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import os
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 class Module (nn.Module):
     """ Module subclass for writing to tensorboard during training.
@@ -31,9 +32,10 @@ class Module (nn.Module):
             see torch.utils.data.TensorDataset for instance.
         """
         N_it = len(xs)
-        for e in range(epochs):
-            l = 0
-            for nit, x in enumerate(xs):
+        for e in tqdm(range(epochs), position=0, desc='epoch', colour="green"):
+            l, ntot = 0, len(xs)
+            for nit, x in tqdm(enumerate(xs), position=1, desc='batch', 
+                               leave=False, total=ntot):
                 optimizer.zero_grad()
                 loss = (self.loss_on(x) if isinstance(x, torch.Tensor)
                         else self.loss_on(*x))
