@@ -8,9 +8,10 @@ parser.add_argument('--error', '-e', nargs=1, help="Copy all the exams having an
 args = parser.parse_args()
 
 if args.error:
-    # Use an env. variable instead of 'patients_json/'
-    if not os.path.isdir('patients_json/'):
-        raise OSError("The patients_json/ folder does not exist. Generate it with pcmri_to_tensor.py using the --json argument.")
+    if not 'PCMRI_JSON' in os.environ:
+        raise OSError("The PCMRI_JSON environment variable is not defined.")
+    if not os.path.isdir(os.environ['PCMRI_JSON']):
+        raise OSError("The folder associated to PCMRI_JSON does not exist. Generate it with pcmri_to_tensor.py using the --json argument.")
     if os.path.isdir(args.error[0]):
         shutil.rmtree(args.error[0])
     os.makedirs(args.error[0], exist_ok=True)
@@ -49,10 +50,10 @@ for patient in db.getAll("*"):
             inters[list_str] += 1
         else:
             inters[list_str] = 1
+            os.makedirs(os.path.join(args.error[0], list_str), exist_ok=True)
 
         if args.error:
-            # Use an env. variable instead of 'patients_json/'
-            os.link(os.path.join("patients_json/", f"{patient.id}.json"), os.path.join(args.error[0], f"{patient.id}.json"))
+            os.link(os.path.join(os.environ['PCMRI_JSON'], f"{patient.id}.json"), os.path.join(args.error[0], list_str, f"{patient.id}.json"))
 
 print("Total missing:")
 types.update(other_types)

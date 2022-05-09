@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from revert import pcmri
+import shutil
 import sys
 from tqdm import tqdm
 import torch
@@ -16,7 +17,11 @@ if not args.json and not args.torch:
     sys.exit(1)
 
 if args.json:
-    os.makedirs('patients_json', exist_ok=True)
+    if not 'PCMRI_JSON' in os.environ:
+        raise OSError("The PCMRI_JSON environment variable is not defined.")
+    if os.path.isdir(os.environ['PCMRI_JSON']):
+        shutil.rmtree(os.environ['PCMRI_JSON'])
+    os.makedirs(os.environ['PCMRI_JSON'], exist_ok=True)
 
 db = pcmri.Dataset("full")
 pt_flows = []
@@ -27,7 +32,7 @@ for patient in tqdm(db.getAll("*")):
     try:
         if args.json:
             data = patient.readAll(fields=["debit", "time"], fmt="dict")
-            with open("patients_json/" + patient.id + ".json", 'w') as outfile:
+            with open(os.path.join(os.environ['PCMRI_JSON'], f"{patient.id}.json"), 'w') as outfile:
                 json.dump(data, outfile, indent=4)
         if args.torch:
             pt_flows.append(patient.flows().tolist())
