@@ -95,7 +95,13 @@ def shift_one(x, y=None):
         x_prime[nb_chan] = x_prime[nb_chan].roll(-shift.item(), -1)
         return x_prime, y
     elif x.dim() == 3:
-        return torch.stack([shift_one(xi, y) for xi in x])
+        x_list = []
+        y_list = []
+        for xi in x:
+            x_prime, y_prime = shift_one(xi, y)
+            x_list.append(x_prime)
+            y_list.append(y_prime)
+        return torch.stack(x_list), torch.stack(y_list)
     else:
         raise TypeError("x must be of shape (N, Nc, Npts) or (Nc, Npts)")
         
