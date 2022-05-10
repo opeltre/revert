@@ -2,3 +2,4 @@ torch
 tqdm
 torchvision
 tensorboard
+h5py
