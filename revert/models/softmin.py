@@ -1,11 +1,12 @@
 import torch
+import torch.nn as nn
 
 from .module import Module
 
 class SoftMin (Module):
 
     def forward (self, x):
-        return torch.softmin(x, dim=-1)
+        return nn.functional.softmin(x, dim=-1)
 
     def loss (self, py, y):
         """
