@@ -38,19 +38,27 @@ class Module (nn.Module):
                 optimizer.zero_grad()
                 loss = (self.loss_on(x) if isinstance(x, torch.Tensor)
                         else self.loss_on(*x))
-                loss.backward()
-                optimizer.step()
+                #--- step callback
                 if w: l += loss.detach()
                 if w and nit % nw == 0 and nit > 0:
                     self.write(w, l / nw, nit + e * N_it)
                     l = 0
+                #--- backprop
+                loss.backward()
+                optimizer.step()
             if scheduler:
                 scheduler.step()
+            #--- epoch callback
+            self.epoch_callback(w)
         return self
-            
+
+    def epoch_callback(self, tag):
+        """ Do something after each epoch. """
+        pass
+
     def write(self, name, data, nit):
         """ Write a scalar to tensorboard / module.writer dict. """
-        if isinstance(self.writer, dict): 
+        if isinstance(self.writer, dict):
             if name in self.writer :
                 self.writer[name]["Val"].append(data.item())
                 self.writer[name]["Step"].append(nit)
@@ -59,23 +67,23 @@ class Module (nn.Module):
                 self.write(name, data, nit)
         elif isinstance(self.writer, SummaryWriter):
             self.writer.add_scalar(name, data, global_step=nit)
-    
-    
+
+
     def write_dict(self, data):
         """ Write key value pairs to tensorboard / module.writer dict. """
         writer = self.writer
-        if isinstance(writer, dict) :    
+        if isinstance(writer, dict) :
             # save the hyper parameter to writer dict
             for key, value in data.items():
                 writer[key] = str(value)
-        elif isinstance(writer, SummaryWriter) :    
+        elif isinstance(writer, SummaryWriter) :
             # save the hyper parameter to tensorboard
             for key, value in data.items():
                 writer.add_text(key , str(value))
 
-    def __matmul__ (self, other): 
+    def __matmul__ (self, other):
         """ Composition of modules. """
-        if isinstance(other, Pipe) and isinstance(self, Pipe): 
+        if isinstance(other, Pipe) and isinstance(self, Pipe):
             return Pipe(*other.modules, *self.modules)
         if isinstance(self, Pipe):
             return Pipe(other, *self.modules)
@@ -83,32 +91,32 @@ class Module (nn.Module):
             return Pipe(*other.modules, self)
         return Pipe(other, self)
 
-    @classmethod 
+    @classmethod
     def load (cls, path, env="REVERT_MODELS"):
         """
-        Load module state, checking class name. 
+        Load module state, checking class name.
 
-        If the environment variable `env` is defined, then 
-        relative paths will be understood from it. 
+        If the environment variable `env` is defined, then
+        relative paths will be understood from it.
 
         """
-        if not os.path.isabs(path) and env in os.environ: 
+        if not os.path.isabs(path) and env in os.environ:
             path = os.path.join(env, path)
         data = torch.load(path)
-        if not isinstance(data, cls): 
+        if not isinstance(data, cls):
             raise TypeError(f'Loaded data is not of type {cls}')
         return data
 
     def save (self, path, env="REVERT_MODELS"):
-        """ 
+        """
         Save module state.
 
-        If the environment variable `env` is defined, then 
-        relative paths will be understood from it. 
+        If the environment variable `env` is defined, then
+        relative paths will be understood from it.
         """
         if isinstance(self.writer, SummaryWriter):
             self.writer.close()
-        if not os.path.isabs(path) and env in os.environ: 
+        if not os.path.isabs(path) and env in os.environ:
             path = os.path.join(env, path)
         torch.save(self, path)
 
@@ -124,18 +132,18 @@ class Pipe (Module):
         """
         super().__init__()
         self.modules = modules
-        
-        for i, mi in enumerate(self.modules): 
+
+        for i, mi in enumerate(self.modules):
             setattr(self, f'module{i}', mi)
-    
+
     def forward (self, x):
         xs = [x]
-        for f in self.modules: 
+        for f in self.modules:
             xs.append(f(xs[-1]))
         y = xs[-1]
         del xs
         torch.cuda.empty_cache()
         return y
-    
-    def loss(self, y, *ys): 
+
+    def loss(self, y, *ys):
         return self.modules[-1].loss(y, *ys)

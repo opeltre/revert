@@ -1,8 +1,6 @@
-# TODO
-#   - log hparams to tensorboard / jsons
-
 import cli_tools as cli
 import torch
+import json
 
 from revert.models import BarlowTwins, VICReg, ConvNet, View
 # augmentations
@@ -15,22 +13,23 @@ from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.tensorboard import SummaryWriter
 
-dim_z = 64
-args  = cli.parse_args(f'vicreg:{dim_z}')
+dx  = 64
+dy  = 32
+dz  = 64
+args = cli.parse_args(f'vicreg-{dx}:{dy}:{dz}')
 
 #--- Model ---
 
-layers  = [[64, 1,  8],
-           [8,  16, 1],
-           [1,  64, 1]]
+layers  = [[dx, 1,  8 ],
+           [16, 32, 16],
+           [1,  dy, 1]]
 
-model = ConvNet(layers, pool='max') @ nn.AvgPool1d(2)
+model = ConvNet(layers, pool='max') @ nn.AvgPool1d(128 // dx)
 
 #--- Expander ---
 
-dim_z = 64
-head  = View([dim_z]) @ ConvNet([[1, 64,    1], 
-                                 [1, dim_z, 1]])
+head  = View([dz]) @ ConvNet([[1, dy, 1], 
+                              [1, dz, 1]])
 
 #--- Twins ---
 
@@ -60,11 +59,11 @@ print(f"\nNumber of pulse pairs: {data.shape[0]}")
 
 #--- Main ---
 
-t_comp = noise(0.05) @ vshift(1) @ scale(0.2) 
+t_comp = noise(0.05) @ vshift(0.5) @ scale(0.2) 
 params = [
-        {'transforms': [noise(0.1)],    'epochs': 12, 'lr': 1e-4},
-        {'transforms': [vshift(1)],     'epochs': 12, 'lr': 1e-4},
-        {'transforms': [scale(0.3)],    'epochs': 12, 'lr': 1e-4},
+        {'transforms': [noise(0.1)],    'epochs': 10, 'lr': 1e-4},
+        {'transforms': [vshift(0.5)],     'epochs': 20, 'lr': 1e-4},
+        {'transforms': [scale(0.3)],    'epochs': 10, 'lr': 1e-4},
         {'transforms': [t_comp],        'epochs': 15, 'lr': 1e-4}
 ]
 
@@ -98,6 +97,8 @@ def main (params, defaults=None):
         free(optim, lr)
         
         #--- cross correlation ---
+# TODO
+#   - log hparams to tensorboard / jsons
         with torch.no_grad():
             n = f'Cross correlation/{name}'
             xs = xs.view([-1, 2, 128])
@@ -107,6 +108,9 @@ def main (params, defaults=None):
         free(xs, C)
 
     twins.write_dict(defaults)
+    twins.write_dict({"model": repr(model), 
+                      "head": repr(head),
+                      "twins": repr(twins)})
 
 #=== Other helpers === 
 
