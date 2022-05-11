@@ -117,4 +117,4 @@ class VICReg (Twins):
         dim  = y.shape[-1]
         corr = self.xcorr(y)
         mask = 1 - torch.eye(y.shape[-1], device=y.device)
-        return (mask * corr).sum() / (2 * dim)
+        return ((mask * corr)**2).sum() / (2 * dim)
