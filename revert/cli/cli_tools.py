@@ -2,7 +2,7 @@ import argparse
 import datetime
 import os
 
-def arg_parser(prefix='module'):
+def arg_parser():
     """ 
     Return an ArgumentParser object with input, output and data arguments.
     """
@@ -93,7 +93,7 @@ def read_args(parser, prefix='module'):
     return args
 
 def parse_args(prefix='module'): 
-    return read_args(arg_parser(prefix), prefix)
+    return read_args(arg_parser(), prefix)
 
 if __name__ == '__main__': 
     args = read_args(arg_parser())
