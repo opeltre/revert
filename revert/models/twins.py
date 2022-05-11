@@ -78,10 +78,11 @@ class VICReg (Twins):
     => https://arxiv.org/abs/2105.04906
     """
 
-    def __init__(self, model, coeffs=(25, 25, 1)):
+    def __init__(self, model, coeffs=(1, 1, .04), stdev=.3):
         """ Create twins with chosen loss coefficients. """
         self.coeffs = (coeffs if isinstance(coeffs, torch.Tensor)
                               else torch.tensor(coeffs))
+        self.stdev = stdev
         super().__init__(model)
 
     def loss (self, y):
@@ -105,7 +106,8 @@ class VICReg (Twins):
         dim = y.shape[-1]
         var = y.var(dim=0)
         dev = torch.sqrt(var + eps).flatten()
-        return torch.max(dev, torch.tensor(0)).sum() / dim
+        tgt = self.stdev
+        return tgt * torch.max(tgt - dev, torch.tensor(0)).sum() / dim
 
     def loss_i(self, y):
         """ Invariance criterion. """
@@ -117,4 +119,4 @@ class VICReg (Twins):
         dim  = y.shape[-1]
         corr = self.xcorr(y)
         mask = 1 - torch.eye(y.shape[-1], device=y.device)
-        return (mask * corr).sum() / (2 * dim)
+        return ((mask * corr)**2).sum() / (2 * dim)
