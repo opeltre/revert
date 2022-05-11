@@ -101,7 +101,7 @@ class Module (nn.Module):
 
         """
         if not os.path.isabs(path) and env in os.environ:
-            path = os.path.join(env, path)
+            path = os.path.join(os.environ[env], path)
         data = torch.load(path)
         if not isinstance(data, cls):
             raise TypeError(f'Loaded data is not of type {cls}')
@@ -117,7 +117,7 @@ class Module (nn.Module):
         if isinstance(self.writer, SummaryWriter):
             self.writer.close()
         if not os.path.isabs(path) and env in os.environ:
-            path = os.path.join(env, path)
+            path = os.path.join(os.environ[env], path)
         torch.save(self, path)
 
 
