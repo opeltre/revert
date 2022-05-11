@@ -7,11 +7,8 @@ N = 20
 x = torch.randn([N, 6, 32])
 y = torch.randn([N, 24, 8])
 
-f1 = ConvNet([[32, 6, 4],
-              [16, 12, 1]])
-
-f2 = ConvNet([[16, 12, 4],
-              [8,  24, 1]])
+f1 = ConvNet([[6, 12],  [32, 16], [4]])
+f2 = ConvNet([[12, 24], [16, 8],  [4]])
 
 
 class TestConv(test.TestCase):

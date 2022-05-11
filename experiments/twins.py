@@ -20,21 +20,21 @@ args = cli.parse_args(f'vicreg-{dx}:{dy}:{dz}')
 
 #--- Model ---
 
-layers  = [[dx, 1,  8 ],
-           [16, 32, 16],
-           [1,  dy, 1]]
+downsample = nn.AvgPool1d(128 // dx) 
 
-model = ConvNet(layers, pool='max') @ nn.AvgPool1d(128 // dx)
+model_layers = [[1,  32, dy],
+               [dx, 16, 1],
+               [8,  16]]
 
-#--- Expander ---
+head_layers = [[dy, dz],
+               [1]]
 
-head  = View([dz]) @ ConvNet([[1, dy, 1], 
-                              [1, dz, 1]])
+model   = ConvNet(model_layers) @ downsample
+head    = View([dz]) @ ConvNet(head_layers)
 
-#--- Twins ---
+twins = VICReg(model @ head)
 
-
-twins = VICReg(head @ model) 
+#--- Writer 
 
 twins.writer = SummaryWriter(args.writer)
 
