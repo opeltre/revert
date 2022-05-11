@@ -15,20 +15,21 @@ from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.tensorboard import SummaryWriter
 
-args  = cli.parse_args('vicreg:32')
+dim_z = 64
+args  = cli.parse_args(f'vicreg:{dim_z}')
 
 #--- Model ---
 
 layers  = [[64, 1,  8],
            [8,  16, 1],
-           [1,  32, 1]]
+           [1,  64, 1]]
 
 model = ConvNet(layers, pool='max') @ nn.AvgPool1d(2)
 
 #--- Expander ---
 
 dim_z = 64
-head  = View([dim_z]) @ ConvNet([[1, 32,    1], 
+head  = View([dim_z]) @ ConvNet([[1, 64,    1], 
                                  [1, dim_z, 1]])
 
 #--- Twins ---
@@ -61,10 +62,10 @@ print(f"\nNumber of pulse pairs: {data.shape[0]}")
 
 t_comp = noise(0.05) @ vshift(1) @ scale(0.2) 
 params = [
-        {'transforms': [noise(0.1)],    'epochs': 15, 'lr': 1e-3},
-        {'transforms': [vshift(1)],     'epochs': 15, 'lr': 1e-3},
-        {'transforms': [scale(0.3)],    'epochs': 15, 'lr': 1e-3},
-        {'transforms': [t_comp],        'epochs': 20, 'lr': 1e-3}
+        {'transforms': [noise(0.1)],    'epochs': 12, 'lr': 1e-4},
+        {'transforms': [vshift(1)],     'epochs': 12, 'lr': 1e-4},
+        {'transforms': [scale(0.3)],    'epochs': 12, 'lr': 1e-4},
+        {'transforms': [t_comp],        'epochs': 15, 'lr': 1e-4}
 ]
 
 def main (params, defaults=None):
@@ -92,7 +93,7 @@ def main (params, defaults=None):
         optim = Adam(twins.parameters(), lr=p['lr'])
         lr    = ExponentialLR(optim, gamma=p['gamma'])
 
-        name  = f'pretrain-{i}' if 'transforms' in p else 'train'
+        name  = f'episode {i}' if 'transforms' in p else 'train'
         twins.fit(xs, optim, lr, epochs=p['epochs'], w=f"Loss/{name}")
         free(optim, lr)
         
@@ -104,6 +105,8 @@ def main (params, defaults=None):
             C = twins.xcorr_on(xs)
             twins.writer.add_image(n, (1 + C) / 2, dataformats="HW")
         free(xs, C)
+
+    twins.write_dict(defaults)
 
 #=== Other helpers === 
 

@@ -34,8 +34,7 @@ class Module (nn.Module):
         N_it = len(xs)
         for e in tqdm(range(epochs), position=0, desc='epoch', colour="green"):
             l, ntot = 0, len(xs)
-            for nit, x in tqdm(enumerate(xs), position=1, desc='batch', 
-                               leave=False, total=ntot):
+            for nit, x in enumerate(xs):
                 optimizer.zero_grad()
                 loss = (self.loss_on(x) if isinstance(x, torch.Tensor)
                         else self.loss_on(*x))
@@ -50,7 +49,7 @@ class Module (nn.Module):
         return self
             
     def write(self, name, data, nit):
-        """ Write a scalar to tensorboard / module.writer dictionnary. """
+        """ Write a scalar to tensorboard / module.writer dict. """
         if isinstance(self.writer, dict): 
             if name in self.writer :
                 self.writer[name]["Val"].append(data.item())
@@ -62,6 +61,18 @@ class Module (nn.Module):
             self.writer.add_scalar(name, data, global_step=nit)
     
     
+    def write_dict(self, data):
+        """ Write key value pairs to tensorboard / module.writer dict. """
+        writer = self.writer
+        if isinstance(writer, dict) :    
+            # save the hyper parameter to writer dict
+            for key, value in data.items():
+                writer[key] = str(value)
+        elif isinstance(writer, SummaryWriter) :    
+            # save the hyper parameter to tensorboard
+            for key, value in data.items():
+                writer.add_text(key , str(value))
+
     def __matmul__ (self, other): 
         """ Composition of modules. """
         if isinstance(other, Pipe) and isinstance(self, Pipe): 
@@ -95,6 +106,8 @@ class Module (nn.Module):
         If the environment variable `env` is defined, then 
         relative paths will be understood from it. 
         """
+        if isinstance(self.writer, SummaryWriter):
+            self.writer.close()
         if not os.path.isabs(path) and env in os.environ: 
             path = os.path.join(env, path)
         torch.save(self, path)
