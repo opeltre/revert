@@ -14,25 +14,28 @@ from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.tensorboard import SummaryWriter
 
 dx  = 64
-dy  = 32
+dy  = 64 
 dz  = 64
-args = cli.parse_args(f'vicreg-{dx}:{dy}:{dz}')
+TwinType = VICReg
+
+args = cli.parse_args(f'{TwinType.__name__}-{dx}:{dy}:{dz}')
 
 #--- Model ---
 
 downsample = nn.AvgPool1d(128 // dx) 
 
-model_layers = [[1,  32, dy],
+model_layers = [[1, 32, dy],
                [dx, 16, 1],
                [8,  16]]
 
 head_layers = [[dy, dz],
+               [1,  1],
                [1]]
 
 model   = ConvNet(model_layers) @ downsample
 head    = View([dz]) @ ConvNet(head_layers)
 
-twins = VICReg(model @ head)
+twins = TwinType(head @ model)
 
 #--- Writer 
 
