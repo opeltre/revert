@@ -10,13 +10,14 @@ from revert.transforms import filter_spikes, bandpass, Troughs, diff
 from revert.transforms import segment, mask_center
 
 if len(sys.argv) > 1:
-    label  = sys.argv[1]
+    dbname = sys.argv[1]
+    label  = sys.argv[2] if len(sys.argv) > 2 else "Baseline"
+    dest   = f'{label.lower()}-{os.path.basename(dbname)}.pt'
+
 else:
     print("Usage : python extract_pulses.py [label]")
     sys.exit(1)
 
-dbname = "full"
-dest   = label + ".pt"
 fs = 100
 
 if "INFUSION_DATASETS" in os.environ and not os.path.isabs(dest):

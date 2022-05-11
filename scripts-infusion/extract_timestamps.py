@@ -1,18 +1,26 @@
 """ Extract timestamps from a dataset: 
-
-        $ python ./periods.py 2016 periods-2016.json 
+        
+        $ export INFUSION_DATASETS="/path/dataset-parent/"
+        $ python extract_timestamps.py "no_shunt"
 """
 import json
+import os
 import sys 
 
 from revert.infusion import Dataset
 
 #--- CLI arguments ---
 
-dbname  = sys.argv[1] if len(sys.argv) > 1 else '2016'
+dbname  = sys.argv[1] if len(sys.argv) > 1 else 'no_shunt'
 out     = sys.argv[2] if len(sys.argv) > 2 else f'periods-{dbname}.json'
 db      = Dataset(dbname)
 Ntot    = len(db.ls())
+
+if "INFUSION_DATASETS" in os.environ and not os.path.isabs(dbname):
+    dbpath = os.environ["INFUSION_DATASETS"]
+    assert os.path.isdir(dbpath)
+    dbname = os.path.join(dbpath, dbname)
+    out = os.path.join(dbpath, out)
 
 print(f"--- Database '{dbname}': {Ntot} files")
 
