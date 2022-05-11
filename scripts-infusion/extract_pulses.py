@@ -9,16 +9,23 @@ from revert.transforms import filter_spikes, bandpass, Troughs, diff
 from revert.transforms import segment, mask_center
 
 dbname = "full"
-dest   = "baseline.pt"
+dest   = "baseline-full.pt"
 fs = 100
+
+if "INFUSION_DATASETS" in os.environ and not os.path.isabs(dest):
+    dbpath = os.environ["INFUSION_DATASETS"]
+    assert os.path.isdir(dbpath)
+    dest = os.path.join(dbpath, dest)
 
 db = infusion.Dataset(dbname)
 
-def main (model_state="pretrained.pt", Npulses=64, minutes=6): 
+def main (model_state=None, Npulses=64, minutes=6): 
 
     # model variation losses
-    print(f"loading model from '{model_state}'")
-    model = ConvNet.load(model_state)
+    print(f"loading model from '{model_state}'" if model_state else "model = Id")
+    model = (ConvNet.load(model_state) 
+                if model_state
+                else lambda x:x)
     losses = [mean_loss(model), diff_loss(model)]
     loss = mixed_loss(losses)
 
@@ -61,17 +68,22 @@ def main (model_state="pretrained.pt", Npulses=64, minutes=6):
             bad["errors"].append(k)
         file.close()
 
-    # save output
+    #--- Save output 
+
     print(f"saving output as '{dest}'")
     xs    = [torch.stack([x[i] for x in out]) for i in range(4)]
     names = ["masks", "pulses", "means", "slopes"]
+
     data  = {ni: xi for xi, ni in zip(xs, names)}
-    for n in names: 
-        print(f"  + {n}\t: {list(data[n].shape)} tensor")
     data["keys"] = good
     data |= bad
+
+    for n in names: 
+        print(f"  + {n}\t: {list(data[n].shape)} tensor")
+    print(f"  + keys\t: {xs[0].shape[0]} list string")
+
     torch.save(data, f'{dest}')
-    # save keys
+
     print(f"extracted {Npulses} pulses from {len(data['keys'])} recordings")
     print(f"  - {len(bad['y_quant'])} bad Y-quantizations encountered")
     print(f"  - {len(bad['amp'])} low amplitudes encountered")
@@ -122,7 +134,7 @@ def mixed_loss(losses, weights=None):
 
 def quantization_y(x): 
     """ Return Y-quantization, should be below .1 """
-    dx = torch.diff(x)
+    dx = torch.diff(x).abs()
     nz = dx.nonzero().flatten()
     return dx[nz].min()
 
