@@ -167,8 +167,13 @@ class Module (nn.Module):
         If the environment variable `env` is defined, then
         relative paths will be understood from it.
         """
+        # close writer
         if isinstance(self.writer, SummaryWriter):
             self.writer.close()
+        # unregister callbacks
+        self.epoch_callbacks = []
+        self.episode_callbacks = []
+        # save to $env/path
         if not os.path.isabs(path) and env in os.environ:
             path = os.path.join(os.environ[env], path)
         torch.save(self, path)
