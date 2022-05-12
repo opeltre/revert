@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import toml
 
 def arg_parser():
     """
@@ -31,6 +32,14 @@ def arg_parser():
 
         If 'path' is relative, will look inside '$INFUSION_DATASETS' or '$PCMRI_DATASETS'.
         """)
+    parser.add_argument('--config', '-c', type=str, metavar="path_to_config_file",
+        help="""
+        Path to a .toml config file that contains different architectures and hyperparameters (default=None).
+        If 'path' relative and the '$REVERT_MODELS' environment variable
+        is defined, the config file will be looked inside this folder.
+        Using default architecture and hyperparameters otherwise. 
+        """)
+    
     return parser
 
 
@@ -42,25 +51,40 @@ def try_envdir (name):
     return os.getcwd()
 
 
-def generate_filename(dirname, prefix='module', use_date=True):
-    """
+def generate_filename(dirname, prefix='module', config=None, use_date=True):
+    """ 
     Generate a filename index from module prefix and date string.
     """
+
     # time info
-    if use_date:
+    if use_date: 
         date = datetime.datetime.now()
         day_num = str(date.day)
         month_num = str(date.month)
         datetime_object = datetime.datetime.strptime(month_num, "%m")
         month_name = datetime_object.strftime("%b").lower()
         daykey = f"{month_name[:3]}{day_num}"
-    # prefix
+    # prefix 
     basename = f"{prefix}-{daykey}" if use_date else prefix
-    # next slot from prefix
-    num = 1
-    while os.path.exists(os.path.join(dirname, f"{basename}-{num}.pt")):
-        num += 1
-    return os.path.join(dirname, f"{basename}-{num}.pt")
+    # config
+    if config:
+        toml_dict = toml.load(config)
+        files_list = []
+        for key in toml_dict.keys():
+            params = toml_dict[key]['hyper_parameters']
+            basename = f"{params['epochs']}_{params['n_batch']}_{params['lr']}-{basename}"
+            num = 1
+            while os.path.exists(os.path.join(dirname, f"{basename}-{num}.pt")):
+                num += 1
+            files_list.append(os.path.join(dirname, f"{basename}-{num}.pt"))
+        return files_list
+    else:
+        # next slot from prefix
+        num = 1
+        while os.path.exists(os.path.join(dirname, f"{basename}-{num}.pt")):
+            num += 1
+        return os.path.join(dirname, f"{basename}-{num}.pt")
+
 
 def read_args(parser, name='module', datatype=None, **defaults):
     """
@@ -70,6 +94,7 @@ def read_args(parser, name='module', datatype=None, **defaults):
     args = parser.parse_args()
     models_dir = try_envdir('REVERT_MODELS')
     logs_dir   = try_envdir('REVERT_LOGS')
+    configs_dir = try_envdir('REVERT_CONFIGS')
     #- Join with optional "dirname" prefix
     if "dirname" in defaults:
         models_dir = os.path.join(models_dir, defaults["dirname"])
@@ -80,6 +105,14 @@ def read_args(parser, name='module', datatype=None, **defaults):
     for k, v in defaults.items():
         if not k in dir(args) or isinstance(getattr(args, k), type(None)):
             setattr(args, k, v)
+
+    #--- Config
+    if args.config:
+        args.config = (args.config if os.path.isabs(args.config)
+                                 else os.path.join(configs_dir, args.config))
+        print(f"> using {args.config} as config file")
+    else:
+        print("> using default architecture and hyperparameters")
 
     #--- Input
     if args.input:
@@ -92,13 +125,13 @@ def read_args(parser, name='module', datatype=None, **defaults):
         print(f"> randomly initialize {name}")
 
     #--- Output
-    if args.output:
+    if args.output and not args.config:
         if os.path.splitext(args.output)[1] == "":
             args.output = os.path.extsep.join((args.output, "pt"))
         args.output = (args.output if os.path.isabs(args.output)
                                  else os.path.join(models_dir, args.output))
     else:
-        args.output = generate_filename(models_dir, name)
+        args.output = generate_filename(models_dir, name, args.config)
     print(f"> save final {name} state as {args.output}")
 
     #--- Dataset path
@@ -108,8 +141,15 @@ def read_args(parser, name='module', datatype=None, **defaults):
         args.data = os.path.join(dbpath, args.data)
 
     #--- Tensorboard
-    key = os.path.splitext(os.path.basename(args.output))[0]
-    args.writer = os.path.join(logs_dir, key)
+    if args.config:
+        writer_list = []
+        for file in args.output:
+            key = os.path.splitext(os.path.basename(file))[0]
+            writer_list.append(os.path.join(logs_dir, key))
+        args.writer = writer_list
+    else:
+        key = os.path.splitext(os.path.basename(args.output))[0]
+        args.writer = os.path.join(logs_dir, key)
     print(f"> save tensorboard traces as {args.writer}")
 
     return args
