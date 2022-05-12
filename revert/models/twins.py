@@ -107,7 +107,7 @@ class VICReg (Twins):
         var = y.var(dim=0)
         dev = torch.sqrt(var + eps).flatten()
         tgt = self.stdev
-        return tgt * torch.max(tgt - dev, torch.tensor(0)).sum() / dim
+        return torch.max(tgt - dev, torch.tensor(0)).sum() / (dim * tgt)
 
     def loss_i(self, y):
         """ Invariance criterion. """

@@ -7,7 +7,7 @@ N = 64
 class TestView(test.TestCase):
 
     def test_view (self):
-        conv = ConvNet([[12, 6, 12], [1, 32, 1]])
+        conv = ConvNet([[6, 32], [12, 1], [12]])
         view = View([32])
         model = view @ conv
         x = torch.randn([N, 6, 12])
