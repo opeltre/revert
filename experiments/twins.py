@@ -14,6 +14,7 @@ dx  = 64
 dy  = 16
 dz  = 64
 TwinType = VICReg
+TwinArgs = [(1, 1, .1)]
 
 args = cli.parse_args(name=f'{TwinType.__name__}-{dx}:{dy}:{dz}',
                       datatype='infusion',
@@ -35,7 +36,7 @@ head_layers = [[dy, 32, dz],
 model   = ConvNet(model_layers) @ downsample
 head    = View([dz]) @ ConvNet(head_layers)
 
-twins = TwinType(head @ model)
+twins = TwinType(head @ model, *TwinArgs)
 
 #========= Writer ===========================
 
@@ -61,6 +62,14 @@ def dump_xcorr(tag, data):
     twins.writer.add_image(n, (1 + C) / 2, dataformats="HW")
     twins.free(C)
 
+twins.write_dict({"model"   : repr(model),
+                  "head"    : repr(head),
+                  "twins"   : repr(twins),
+                  "Layers/model": json.dumps(model_layers),
+                  "Layers/head" : json.dumps(head_layers),
+                  "Args/twins"  : TwinArgs
+                  })
+
 #=========== Main ============================
 
 t_comp = noise(0.05) @ vshift(0.5) @ scale(0.2)
@@ -83,10 +92,11 @@ def main (params, defaults=None):
                 'n_it'  : 3750
                 } | (defaults if defaults else {})
 
+    twins.write_dict(defaults)
+
     data, data_val = getData(args.data)
     print(f"\nFitting over {data.shape[0]} pulse pairs "+\
           f"(validation {data_val.shape[0]})")
-    
 
     for i, p in enumerate(params):
         print(f'\n[Episode {i}]:')
@@ -108,15 +118,6 @@ def main (params, defaults=None):
         }
 
         twins.fit(xs, **kws) 
-
-    twins.write_dict(defaults)
-    twins.write_dict({"model"   : repr(model),
-                      "head"    : repr(head),
-                      "twins"   : repr(twins),
-                      "Layers/model": json.dumps(model_layers),
-                      "Layers/head" : json.dumps(head_layers)
-                      })
-
 
 #======= Data loading ======================
 
