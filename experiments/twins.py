@@ -11,7 +11,7 @@ from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 
 dx  = 64
-dy  = 16
+dy  = 8
 dz  = 64
 TwinType = VICReg
 TwinArgs = [(1, 1, .1)]

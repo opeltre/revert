@@ -36,6 +36,7 @@ class Module (nn.Module):
         self.writer = {}
         self.epoch_callbacks   = []
         self.episode_callbacks = []
+        self.iter_callbacks    = []
 
     def loss_on (self, x, *ys):
         """ Model loss on input """
@@ -77,6 +78,8 @@ class Module (nn.Module):
                 #--- backprop
                 loss.backward()
                 optim.step()
+                #--- iter callback
+                for cb in self.iter_callbacks: cb(tag, x, nit)
             #--- learning rate decay
             if scheduler:
                 scheduler.step()
@@ -86,10 +89,19 @@ class Module (nn.Module):
         #--- episode callback
         for cb in self.episode_callbacks:   cb(tag, data)
         #--- 
+        optim.zero_grad()
         self.free(optim, scheduler)
         self.free(data)
         return self
     
+    def iter(self, callback):
+        """ 
+        Run callback("tag", data, epoch) after each epoch. 
+
+        The data argument will be a dict with 'train' and 'val' values.
+        """
+        self.iter_callbacks.append(torch.no_grad()(callback))
+
     def epoch(self, callback):
         """ 
         Run callback("tag", data, epoch) after each epoch. 
