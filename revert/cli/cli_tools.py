@@ -11,19 +11,26 @@ def arg_parser():
     parser.add_argument('--input', '-i', type=str, metavar="path_to_input_file_state",
         help="""
         Initial model state path, should target an existing '.pt' file (default=None).  
-        If 'path' relative and the '$REVERT_MODELS' environment variable 
+
+        If 'path' is relative and the '$REVERT_MODELS' environment variable 
         is defined, the state file will be looked inside this folder. 
         Model is randomly initialized otherwise.
         """)
-    parser.add_argument('--output', '-o', type=str, metavar="path_to_output_folder",
+    parser.add_argument('--output', '-o', type=str, metavar="path to dataset",
         help="""
         Path where final model state should be saved (default=None). 
-        If 'path' relative and the '$REVERT_MODELS' environment variable 
+
+        If 'path' is relative and the '$REVERT_MODELS' environment variable 
         is defined, the state file will be saved inside this folder, 
         with tensorboard traces saved in '$REVERT_LOGS/path'.
         File name automatically generated if not given. 
         """)
-    
+    parser.add_argument('--data', '-d', type=str, metavar="path to dataset",
+        help="""
+        Path to dataset. 
+
+        If 'path' is relative, will look inside '$INFUSION_DATASETS' or '$PCMRI_DATASETS'.
+        """)
     return parser
 
 
@@ -56,7 +63,7 @@ def generate_filename(dirname, prefix='module', use_date=True):
     return os.path.join(dirname, f"{basename}-{num}.pt")
 
 
-def read_args(parser, prefix='module'):
+def read_args(parser, prefix='module', datatype=None):
     """ 
     Return argument namespace after some processing. 
     """
@@ -84,6 +91,12 @@ def read_args(parser, prefix='module'):
     else: 
         args.output = generate_filename(models_dir, prefix)
     print(f"> save final {prefix} state as {args.output}")
+
+    #--- Dataset path
+    if args.data and datatype and not os.path.isabs(args.data):
+        envname = datatype.upper() + '_DATASETS'
+        dbpath = os.environ[envname] if envname in os.environ else os.getcwd()
+        args.data = os.path.join(dbpath, args.data)
 
     #--- Tensorboard 
     key = os.path.splitext(os.path.basename(args.output))[0]
