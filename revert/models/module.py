@@ -44,7 +44,7 @@ class Module (nn.Module):
             raise RuntimeError("'model.loss' is not defined")
         return self.loss(self.forward(x), *ys)
 
-    def fit (self, xs, optim=None, lr=None, epochs=1, tag=None, val=None, *kws):
+    def fit (self, xs, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
         """ 
         Fit on a N_it x 2 x N_batch x N tensor.
 
@@ -53,15 +53,18 @@ class Module (nn.Module):
         """
         #--- number of steps between calls to writer
         mod = kws["mod"] if "mod" in kws else 10
+        #--- hide progress bar
+        progress = True if "progress" not in kws else kws["progress"]
         #--- optimizer and scheduler
         if optim and lr:
             scheduler = lr
         elif isinstance(lr, float):
-            optim = torch.optim.Adam(lr)
+            optim = torch.optim.Adam(self.parameters(), lr)
             scheduler = None
         N_it = len(xs)
         #--- loop over epochs
-        for e in tqdm(range(epochs), position=0, desc='epoch', colour="green"):
+        for e in (range(epochs) if not progress else 
+                  tqdm(range(epochs), position=0, desc='epoch', colour="green")):
             l, ntot = 0, len(xs)
             #--- loop over batches
             for nit, x in enumerate(xs):
