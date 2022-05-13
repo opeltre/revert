@@ -71,12 +71,23 @@ def generate_filename(dirname, prefix='module', config=None, use_date=True):
         toml_dict = toml.load(config)
         files_list = []
         for key in toml_dict.keys():
-            params = toml_dict[key]['hyper_parameters']
-            basename = f"{params['epochs']}_{params['n_batch']}_{params['lr']}-{basename}"
-            num = 1
-            while os.path.exists(os.path.join(dirname, f"{basename}-{num}.pt")):
-                num += 1
-            files_list.append(os.path.join(dirname, f"{basename}-{num}.pt"))
+            params = toml_dict[key]['hparams']
+            if isinstance(params['n_batch'], list) and isinstance(params['lr'], list):
+                if len(params['n_batch']) != len(params['lr']):
+                    raise Exception(f"n_batch and lr lists from config file for {key} are not compatible in sizes")
+            elif isinstance(params['n_batch'], list):
+                params['lr'] = [params['lr']] * len(params["n_batch"])
+            elif isinstance(params['lr'], list):
+                params['n_batch'] = [params['n_batch']] * len(params["lr"])
+            else:
+                params['n_batch'] = [params['n_batch']]
+                params['lr'] = [params['lr']]
+            for n, lr in zip(params["n_batch"], params["lr"]):
+                fullname = f"{basename}-{key}-{n}-{lr}"
+                num = 1
+                while os.path.exists(os.path.join(dirname, f"{fullname}-{num}.pt")):
+                    num += 1
+                files_list.append(os.path.join(dirname, f"{fullname}-{num}.pt"))
         return files_list
     else:
         # next slot from prefix
