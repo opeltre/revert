@@ -36,6 +36,7 @@ class Module (nn.Module):
         self.writer = {}
         self.epoch_callbacks   = []
         self.episode_callbacks = []
+        self.iter_callbacks    = []
 
     def loss_on (self, x, *ys):
         """ Model loss on input """
@@ -43,7 +44,7 @@ class Module (nn.Module):
             raise RuntimeError("'model.loss' is not defined")
         return self.loss(self.forward(x), *ys)
 
-    def fit (self, xs, optim=None, lr=None, epochs=1, tag=None, val=None, *kws):
+    def fit (self, xs, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
         """ 
         Fit on a N_it x 2 x N_batch x N tensor.
 
@@ -52,15 +53,18 @@ class Module (nn.Module):
         """
         #--- number of steps between calls to writer
         mod = kws["mod"] if "mod" in kws else 10
+        #--- hide progress bar
+        progress = True if "progress" not in kws else kws["progress"]
         #--- optimizer and scheduler
         if optim and lr:
             scheduler = lr
         elif isinstance(lr, float):
-            optim = torch.optim.Adam(lr)
+            optim = torch.optim.Adam(self.parameters(), lr)
             scheduler = None
         N_it = len(xs)
         #--- loop over epochs
-        for e in tqdm(range(epochs), position=0, desc='epoch', colour="green"):
+        for e in (range(epochs) if not progress else 
+                  tqdm(range(epochs), position=0, desc='epoch', colour="green")):
             l, ntot = 0, len(xs)
             #--- loop over batches
             for nit, x in enumerate(xs):
@@ -77,6 +81,8 @@ class Module (nn.Module):
                 #--- backprop
                 loss.backward()
                 optim.step()
+                #--- iter callback
+                for cb in self.iter_callbacks: cb(tag, x, nit)
             #--- learning rate decay
             if scheduler:
                 scheduler.step()
@@ -86,10 +92,19 @@ class Module (nn.Module):
         #--- episode callback
         for cb in self.episode_callbacks:   cb(tag, data)
         #--- 
+        optim.zero_grad()
         self.free(optim, scheduler)
         self.free(data)
         return self
     
+    def iter(self, callback):
+        """ 
+        Run callback("tag", data, epoch) after each epoch. 
+
+        The data argument will be a dict with 'train' and 'val' values.
+        """
+        self.iter_callbacks.append(torch.no_grad()(callback))
+
     def epoch(self, callback):
         """ 
         Run callback("tag", data, epoch) after each epoch. 

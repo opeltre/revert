@@ -10,8 +10,8 @@ from torch import nn
 from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 
-dx  = 64
-dy  = 16
+dx  = 128
+dy  = 8
 dz  = 64
 TwinType = VICReg
 TwinArgs = [(1, 1, .1)]
@@ -25,7 +25,7 @@ args = cli.parse_args(name=f'{TwinType.__name__}-{dx}:{dy}:{dz}',
 
 downsample = nn.AvgPool1d(128 // dx)
 
-model_layers = [[1, 32, dy],
+model_layers = [[1, 64, dy],
                [dx, 8, 1],
                [8,  8]]
 
@@ -47,17 +47,17 @@ if args.input:
 
 @twins.epoch
 def dump_loss_stdev(tag, data, epoch):
-    y = twins(data['val'])
+    y = twins(shuffle(0, data['val'])[:2048])
     stdev = y.std(0).mean()
     loss  = twins.loss(y)
     twins.write(f"Loss validation/{tag}", loss, epoch)
     twins.write(f"Stdev/{tag}", stdev, epoch)
-    twins.free(y)
+    twins.free()
 
 @twins.episode
 def dump_xcorr(tag, data):
     n = f'Cross correlation/{tag}'
-    y = twins(data['val'])
+    y = twins(shuffle(0, data['val'])[:2048])
     C = twins.xcorr(y)
     twins.writer.add_image(n, (1 + C) / 2, dataformats="HW")
     twins.free(C)
@@ -86,7 +86,7 @@ def main (params, defaults=None):
     twins.cuda()
 
     defaults = {'epochs'    : 25,
-                'n_batch'   : 256,
+                'n_batch'   : 128,
                 'lr'        : 1e-3,
                 'gamma' : 0.8,
                 'n_it'  : 3750
