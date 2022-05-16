@@ -9,6 +9,11 @@ class WGAN (Module):
     Wasserstein GAN.
     """
 
+    @classmethod
+    def conditional(cls, G, D, E, n_crit=100):
+        """ Conditional WGAN instance. """
+        return ConditionalWGAN(G, D, E, n_crit)
+
     def __init__(self, generator, critic, n_crit=100):
         """
         Initialize WGAN from generator G and critic D. 
@@ -31,15 +36,42 @@ class WGAN (Module):
         The critic should therefore enforce weight clipping to respect
         the Lipschitz constraint.
         """
+        device = x_true.device
         xs = torch.cat([x_gen, x_true])
         ys = torch.cat([torch.zeros(x_gen.shape), torch.ones(x_true.shape)])
-        ys = ys.view([xs.shape[0], -1])
+        ys = ys.to(device).view([xs.shape[0], -1])
         data = [(xs.detach(), ys)]
         self.critic.fit(data, lr=1e-3, epochs=self.n_crit, progress=False)
         return self.critic.loss_on(*data[0])
 
     def forward(self, z):
         return self.gen(z)
+
+
+class ConditionalWGAN(WGAN):
+
+    def __init__(self, generator, critic, encoder, n_crit=100):
+        super().__init__(generator, critic, n_crit)
+        self.encoder = encoder
+
+    def loss(self, p_gen, x_true):
+        """
+        Loss on generated pairs p_gen = (z, G(z)) and true samples x_true.
+
+        The samples are encoded to pairs p_true = (E(x_true), x_true) before
+        optimizing the WGAN critic loss on pairs.
+        """
+        with torch.no_grad():
+            z_true = self.encoder(x_true)
+        p_true = torch.cat([z_true.flatten(1), x_true.flatten(1)], dim=1)
+        return super().loss(p_gen, p_true)
+
+    def forward(self, z):
+        """
+        Return the pair (z, G(z)) as a concatenated vector.
+        """
+        x_gen = self.gen(z)
+        return torch.cat([z.flatten(1), x_gen.flatten(1)], dim=1)
 
 
 class WGANCritic (Module):
@@ -60,15 +92,14 @@ class WGANCritic (Module):
         for name, p in self.model.named_parameters():
             if all(not re.match(e, name) for e in self.exclude):
                 self.clipped.append(p)
-        self.iter_callbacks.append(self.clip)
+        self.iter_callbacks.append(torch.no_grad()(self.clip))
     
     def clip(self, *xs):
         """
         Clip model weights without constraining biases.
         """
-        for name, p in self.named_parameters():
-            bounds = torch.tensor([-self.max, self.max])
-            p = torch.min(torch.max(p, bounds[0]), bounds[1])
+        for p in self.clipped:
+            p.clip_(-self.max, self.max)
 
     def loss(self, fx, y):
         """ 
