@@ -23,7 +23,6 @@ ys = (torch.tensor([0, 1])
         .flatten())
 
 options     = sys.argv[1] if len(sys.argv) > 1 else ''
-test_fit    = options == "fit"
 
 class TestWGAN(test.TestCase):
 
@@ -49,7 +48,7 @@ class TestWGAN(test.TestCase):
         self.assertTrue(c_loss.dim() == 0)
         self.assertTrue(w_loss.dim() == 0)
 
-    @unittest.skipUnless(test_fit, "optional WGAN fit")
+    @unittest.skipUnless(test.fit, "optional WGAN fit")
     def test_wgan_fit(self):
         gan = WGAN(G, D)
         gan.n_crit = 100
@@ -95,7 +94,7 @@ class TestCWGAN(test.TestCase):
         self.assertClose(p_gen, 
                         torch.cat([z.flatten(1), x_gen.flatten(1)], dim=1))
 
-    @unittest.skipUnless(test_fit, 'optional CWGAN fit')
+    @unittest.skipUnless(test.fit, 'optional CWGAN fit')
     def test_conditional_wgan_fit(self):
         N, Nb = 200, 256
         E = lambda x: x[:,1:]

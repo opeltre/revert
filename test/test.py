@@ -1,5 +1,6 @@
 import unittest
 import torch
+import os
 
 class TestCase (unittest.TestCase):
 
@@ -14,4 +15,5 @@ class TestCase (unittest.TestCase):
             print(f"Error {dist / N} >= tolerance {tol}")
         return self.assertTrue(dist < N * tol)
 
+fit  = "REVERT_TEST_FIT" in os.environ and os.environ["REVERT_TEST_FIT"]
 main = unittest.main
