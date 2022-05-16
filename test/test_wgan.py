@@ -1,10 +1,11 @@
 import test
 import unittest
 import torch
+import sys
 
-from revert.models import WGAN, WGANCritic, ConvNet, View
+from revert.models import WGAN, WGANCritic, ConvNet, View, Affine
 
-N = 100
+N, Nb = 200, 256
 dx, dz = 6, 3
 G = ConvNet([[dz, dx], [1, 1], [1]])
 D = ConvNet([[dx, 1],  [1, 1], [1]])
@@ -20,6 +21,9 @@ xs = torch.cat([x_gen, x_true])
 ys = (torch.tensor([0, 1])
         .repeat_interleave(N)
         .flatten())
+
+options     = sys.argv[1] if len(sys.argv) > 1 else ''
+test_fit    = options == "fit"
 
 class TestWGAN(test.TestCase):
 
@@ -45,11 +49,10 @@ class TestWGAN(test.TestCase):
         self.assertTrue(c_loss.dim() == 0)
         self.assertTrue(w_loss.dim() == 0)
 
-    @unittest.skip("optional WGAN fit")
+    @unittest.skipUnless(test_fit, "optional WGAN fit")
     def test_wgan_fit(self):
-        N, Nb = 200, 40
         gan = WGAN(G, D)
-        gan.n_critic = 100
+        gan.n_crit = 100
         #--- input 3d-seeds
         z = torch.randn([N, Nb, 3, 1])
         #--- observed 3d-distribution
@@ -74,3 +77,56 @@ class TestWGAN(test.TestCase):
         expect = proj @ x_gen.T
         result = x_gen.T
         self.assertClose(expect, result, tol=.1)
+
+
+class TestCWGAN(test.TestCase):
+
+    def test_conditional_wgan(self):
+        E = lambda x: x[1]
+        G = View([2]) @ ConvNet([[1, 2], [1, 1], [1]])
+        D = View([1]) @ ConvNet([[3, 1], [1, 1], [1]])
+        cgan = WGAN.conditional(G, D, E)
+        self.assertTrue(cgan.encoder == E)
+        z = torch.randn([10, 1, 1])
+        p_gen = cgan(z)
+        x_gen = cgan.gen(z)
+        self.assertTrue(tuple(p_gen.shape) == (10, 3))
+        self.assertTrue(tuple(x_gen.shape) == (10, 2))
+        self.assertClose(p_gen, 
+                        torch.cat([z.flatten(1), x_gen.flatten(1)], dim=1))
+
+    @unittest.skipUnless(test_fit, 'optional CWGAN fit')
+    def test_conditional_wgan_fit(self):
+        N, Nb = 200, 256
+        E = lambda x: x[:,1:]
+        G = Affine(1, 2)
+        D = View([1]) @ ConvNet([[3, 3, 1], [1, 1, 1], [1, 1]]) @ View([3, 1])
+        cgan = WGAN.conditional(G, D, E)
+        #--- 2d-gaussian with (.3, .3) mean and (.05, .1) stdev
+        mean = torch.tensor([.3, .3], device="cuda")
+        devs = torch.tensor([.05, .1], device="cuda")
+        x_true = mean + (torch.randn([N, Nb, 2], device="cuda") * devs)
+        #--- 1d-gaussian codes with .3 mean and .1 stdev
+        z = .1 + (torch.randn([N, Nb, 1], device="cuda") * .3)
+        z0 = z + 0
+        #--- fit on dataset of (code, sample) pairs
+        dset = [(zi, xi) for zi, xi in zip(z, x_true)]
+        cgan.cuda()
+        print(f"\nFitting conditional WGAN on {N} batches of size {Nb}:")
+        cgan.n_crit  = 100
+        cgan.lr_crit = 1e-2
+        print(f"\ncritic: \tn_it = {cgan.n_crit} \tcritic lr = {cgan.lr_crit}")
+        cgan.fit(dset, lr=1e-3, epochs=5, progress=True)
+        #--- generate
+        z = z.view([-1, 1])
+        with torch.no_grad():
+            x_gen = cgan.gen(z)
+        #--- check section consistency
+        self.assertClose(z, z0.view([-1, 1]))
+        self.assertClose(z, E(x_gen), tol=.1)
+        #--- check mean and support
+        print(f"\nmean  x_gen: {x_gen.mean([0])}")
+        print(f"\nstdev x_gen: {x_gen.std([0])}")
+        self.assertClose(z.mean([0]), E(x_true.view([-1, 1])).mean([0]), tol=.1)
+        self.assertClose(x_gen.mean([0]), mean, tol=.1)
+        self.assertClose(x_gen[:,0].std([0]), 0, tol=.1)

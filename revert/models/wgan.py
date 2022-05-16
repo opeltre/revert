@@ -14,7 +14,7 @@ class WGAN (Module):
         """ Conditional WGAN instance. """
         return ConditionalWGAN(G, D, E, n_crit)
 
-    def __init__(self, generator, critic, n_crit=100):
+    def __init__(self, generator, critic, n_crit=100, lr_crit=1e-2):
         """
         Initialize WGAN from generator G and critic D. 
         """
@@ -22,8 +22,8 @@ class WGAN (Module):
         self.gen    = generator
         self.critic = (critic if isinstance(critic, WGANCritic) 
                              else WGANCritic(critic))
-        self.n_crit = 100
-
+        self.n_crit  = n_crit
+        self.lr_crit = lr_crit
     def loss(self, x_gen, x_true):
         """ 
         WGAN loss on returned samples x.
@@ -41,7 +41,8 @@ class WGAN (Module):
         ys = torch.cat([torch.zeros(x_gen.shape), torch.ones(x_true.shape)])
         ys = ys.to(device).view([xs.shape[0], -1])
         data = [(xs.detach(), ys)]
-        self.critic.fit(data, lr=1e-3, epochs=self.n_crit, progress=False)
+        lr, n = self.lr_crit, self.n_crit
+        self.critic.fit(data, lr=lr, epochs=n, progress=False)
         return self.critic.loss_on(*data[0])
 
     def forward(self, z):
