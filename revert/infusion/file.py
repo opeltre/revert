@@ -5,6 +5,8 @@ import h5py
 import xml.etree.ElementTree as xml
 import math
 from datetime import datetime, timezone
+import os
+
 
 def unixTimeICM (string): 
     """ Fix timezone inconsistencies of ICM+ in datetime strings.
@@ -26,7 +28,10 @@ class File (h5py.File):
 
         N.B: more easily done with `db.get(pattern)`  
         """ 
-        match = re.match(r'^.*/(.*)\.hdf5', path)
+        if   os.path.sep == '/' : reg_exp = r'^.*/(.*)\.hdf5'
+        elif os.path.sep == '\\': reg_exp = r'^.*\\(.*)\.hdf5'  # '^.*\\\\(.*)\\.hdf5'
+        else: raise Exception("Path seperator must be '/' or '\\'")
+        match = re.match(reg_exp, path)
         self.key = match.group(1) if match else "none"
         self.db  = db
         super().__init__(path, 'r')

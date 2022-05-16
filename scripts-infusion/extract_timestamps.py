@@ -1,7 +1,15 @@
 """ Extract timestamps from a dataset: 
-        
+
+    # Set the environment variable:
+        # Unix:
         $ export INFUSION_DATASETS="/path/dataset-parent/"
-        $ python extract_timestamps.py "no_shunt"
+
+        # Windows (PowerShell):
+        $ setx INFUSION_DATASETS "path\dataset-parent\"
+        # after setting it, PowerShell should be rerun
+
+    # Run script with dataset name as a command-line argument:
+        $ python extract_timestamps.py no_shunt
 """
 import json
 import os
