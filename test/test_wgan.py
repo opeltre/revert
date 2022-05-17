@@ -55,7 +55,7 @@ class TestWGAN(test.TestCase):
         self.assertTrue(c_loss.dim() == 0)
         self.assertTrue(w_loss.dim() == 0)
 
-    @test.skipFit("WGAN", "6d-embedding of 3d-gaussian")
+    @test.skipFit("WGAN", "6d-embedding of a 3d-gaussian")
     def test_wgan_fit(self, writer):
         gan = WGAN(G, D, ns, lr_gen, clip=clip)
         gan.writer = writer
