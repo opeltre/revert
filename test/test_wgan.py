@@ -10,6 +10,7 @@ lr_gen, lr_crit = (5e-3, 5e-3)
 clip = .5
 N, Nb = 200, 256
 epochs = 10
+tag = "critic score"
 
 dx, dz = 6, 3
 G = Affine(3, 6)
@@ -73,7 +74,7 @@ class TestWGAN(test.TestCase):
         print(f"\n\tn_gen: {gan.n_gen} \tlr_gen: {lr_gen}")
         print(f"\tn_crit: {gan.n_crit} \tlr_crit: {gan.lr_crit}")
         print(f"\tclip: {gan.critic.clip_value}\n")
-        gan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag="test")
+        gan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag=tag)
         #--- generate
         with torch.no_grad():
             x_gen = gan(z.view([-1, 3]))

@@ -21,9 +21,9 @@ class TestKMeans (test.TestCase):
     def test_fit(self, writer):
         km = KMeans(n_clusters, dim)
         km.writer = writer
-        corners, x   = makeClusters()
+        corners, x = makeClusters()
         km.fit([x], epochs=6000, tag="kmeans")
-        print(f"\n\t=> centers:\n\t\t{km.centers.cpu()}")
+        print(f'\n\t=> centers:\n{km.centers.cpu().detach()}')
         y = km.predict(x).float().view([-1, n_clusters, dim])
         # Expect prediction to be constant across clusters 
         result = y - y.mean([0])

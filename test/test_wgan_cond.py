@@ -10,6 +10,7 @@ clip = .3
 
 N, Nb = 100, 512 
 epochs = 20
+tag = "critic score"
 
 class TestCWGAN(test.TestCase):
 
@@ -46,7 +47,7 @@ class TestCWGAN(test.TestCase):
         print(f"\n\tn_gen = {cgan.n_gen} \tlr_gen = {lr_gen}")
         print(f"\tn_crit = {cgan.n_crit} \tlr_crit = {cgan.lr_crit}\n")
         print(f"\tclip: {clip}\n")
-        cgan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag="test")
+        cgan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag=tag)
         #--- generate
         z = z.view([-1, 1])
         with torch.no_grad():
