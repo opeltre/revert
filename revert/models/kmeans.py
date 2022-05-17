@@ -12,7 +12,6 @@ class SimpleEuler (Optimizer):
     def __init__(self, params, lr=1.):
         super().__init__([{"params": params}], {'lr': 1.})
         self.lr = 1.
-        print(len(self.param_groups))
 
     def step(self):
         for p in self.param_groups[0]['params']:
@@ -34,8 +33,6 @@ class KMeans(Module):
             self.centers = nn.Parameter(torch.zeros([self.k, dim]))
         else:
             raise TypeError("data must be int k or (k,dim) tensor")
-        print(self.centers)
-        print(list(self.parameters()))
 
     def predict (self, x):
         """ Predict cluster labels. """
@@ -65,7 +62,7 @@ class KMeans(Module):
         """ Sum of squared distances to cluster centers. """
         m = self.centers
         N = torch.zeros([self.k]).scatter_add_(0, c, torch.ones(c.shape))
-        return ((x - m[c])**2 / N[c,None]).sum()
+        return ((x - m[c])**2 / N[c,None]).sum() / 2
     
     def loss_on(self, x):
         return self.loss(self(x), x)

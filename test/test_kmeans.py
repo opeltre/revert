@@ -16,11 +16,14 @@ def makeClusters(stdev=0.1, n=100):
     return means, x.view([n * 4, 2])
 
 class TestKMeans (test.TestCase):
-    
-    def test_fit(self):
+   
+    @test.skipFit("KMeans", "2d-gaussians centered on square corners")
+    def test_fit(self, writer):
         km = KMeans(n_clusters, dim)
+        km.writer = writer
         corners, x   = makeClusters()
-        km.fit([x], epochs=6000)
+        km.fit([x], epochs=6000, tag="kmeans")
+        print(f"\n\t=> centers:\n\t\t{km.centers.cpu()}")
         y = km.predict(x).float().view([-1, n_clusters, dim])
         # Expect prediction to be constant across clusters 
         result = y - y.mean([0])
