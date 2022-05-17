@@ -18,9 +18,9 @@ def makeClusters(stdev=0.1, n=100):
 class TestKMeans (test.TestCase):
     
     def test_fit(self):
+        km = KMeans(n_clusters, dim)
         corners, x   = makeClusters()
-        km = KMeans(n_clusters)
-        km.fit(x, eps=eps, n_it=n_it)
+        km.fit([x], epochs=6000)
         y = km.predict(x).float().view([-1, n_clusters, dim])
         # Expect prediction to be constant across clusters 
         result = y - y.mean([0])

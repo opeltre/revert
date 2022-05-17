@@ -61,6 +61,8 @@ class Module (nn.Module):
         elif isinstance(lr, float):
             optim = torch.optim.Adam(self.parameters(), lr)
             scheduler = None
+        else:
+            scheduler = None
         N_it = len(xs)
         #--- loop over epochs
         for e in (range(epochs) if not progress else 
