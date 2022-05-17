@@ -1,19 +1,23 @@
 import torch
 import revert.plot as rp
 
-from revert.models import ConvNet, KMeans
+from revert.models import KMeans, Module, Pipe, View
+from revert.cli    import join_envdir
 
-model = ConvNet.load("apr12-1.pt")
-km    = KMeans(64)
+#--- KMeans instance
+km    = KMeans(32)
+#--- load model state
+twins = Module.load("twins/VICReg-64:8:64-may12-1.pt")
+model = Pipe(*twins.model.modules[:2], View([8]))
+model.cuda()
 
-d = torch.load("../scripts-infusion/baseline.pt")
-x = d['pulses'].view([-1, 128])
-y = model(x).detach()
+def main(): 
+    #--- image of pulse dataset
+    d = torch.load(join_envdir("INFUSION_DATASETS", "baseline-no_shunt.pt"))
+    x = d['pulses'].view([-1, 128]).cuda()
 
-# K-Means loop
-km.fit(y.cuda()).cpu()
+    with torch.no_grad(): 
+        y = model(x).detach()
 
-# Subset of pulses
-x1 = d['pulses'][:,:6].reshape([-1, 128])
-y1 = model(x1)
-
+    #--- K-Means loop
+    km.fit(y.cuda()).cpu()
