@@ -12,12 +12,17 @@ def dirac(i, N):
 
 class TestSoftMin(test.TestCase):
 
-    # Test if softmin returns positive values
+    # Making sure that the elements of the n-dimensional output Tensor lie in the range [0, 1] and sum to 1
     def test_forward(self):
-        x = torch.randn(10, 6, 32)
+        Nb, Nc, Npts = 10, 6, 32
+        x = torch.randn(Nb, Nc, Npts)
         y = model.forward(x)
-        result = y.abs()
-        expect = y
+        result = torch.ge(y, 0).int()
+        expect = torch.ones(Nb, Nc, Npts)
+        self.assertClose(expect, result)
+
+        result = y.sum(-1)
+        expect = torch.ones(Nb, Nc)
         self.assertClose(expect, result)
 
     # Test if softmin returns coherent values with dirac
