@@ -22,7 +22,7 @@ class TestKMeans (test.TestCase):
         km = KMeans(n_clusters, dim)
         km.writer = writer
         corners, x = makeClusters()
-        km.fit([x], epochs=6000, tag="kmeans")
+        km.fit([x] * 10, epochs=600, tag="kmeans", mod=5)
         print(f'\n\t=> centers:\n{km.centers.cpu().detach()}')
         y = km.predict(x).float().view([-1, n_clusters, dim])
         # Expect prediction to be constant across clusters 

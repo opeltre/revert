@@ -50,7 +50,7 @@ class KMeans(Module):
         while m.shape[0] < self.k:
             d = torch.cdist(x, m)
             D = torch.sort(d, -1).values
-            p = prob(D[:,0] ** 2)
+            p = prob(logits=(D[:,0] ** 2))
             i = p.sample()
             m = torch.cat([m, x[i:i+1]])
         self.centers = nn.Parameter(m)
