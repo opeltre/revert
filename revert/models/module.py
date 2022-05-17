@@ -38,11 +38,11 @@ class Module (nn.Module):
         self.episode_callbacks = []
         self.iter_callbacks    = []
 
-    def loss_on (self, x, *ys):
+    def loss_on (self, x, *ys, **ks):
         """ Model loss on input """
         if not "loss" in self.__dir__():
             raise RuntimeError("'model.loss' is not defined")
-        return self.loss(self.forward(x), *ys)
+        return self.loss(self.forward(x), *ys, **ks)
 
     def fit (self, xs, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
         """ 

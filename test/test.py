@@ -1,5 +1,9 @@
 import unittest
 import torch
+import os
+
+from torch.utils.tensorboard import SummaryWriter
+from revert import cli
 
 class TestCase (unittest.TestCase):
 
@@ -13,5 +17,16 @@ class TestCase (unittest.TestCase):
         if dist >= N * tol: 
             print(f"Error {dist / N} >= tolerance {tol}")
         return self.assertTrue(dist < N * tol)
+
+fit  = "REVERT_TEST_FIT" in os.environ and os.environ["REVERT_TEST_FIT"]
+
+def skipFit (name, testinfo=""):
+    def skip(unit):
+        def wrap_unit(self):
+            print("\n" + "-" * 12 + f" Fitting {name} : {testinfo} " + "-" * 12)
+            path = cli.join_envdir("REVERT_LOGS", f"test/{name}")
+            unit(self, SummaryWriter(path))
+        return unittest.skipUnless(fit, f"optional {name} fit")(wrap_unit)
+    return skip
 
 main = unittest.main

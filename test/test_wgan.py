@@ -1,25 +1,35 @@
 import test
 import unittest
 import torch
+import sys
 
-from revert.models import WGAN, WGANCritic, ConvNet, View
+from revert.models import WGAN, WGANCritic, ConvNet, View, Affine
 
-N = 100
+ns = (10, 500)  # (n_gen, n_crit)
+lr_gen, lr_crit = (5e-3, 5e-3)
+clip = .5
+N, Nb = 200, 256
+epochs = 10
+
 dx, dz = 6, 3
-G = ConvNet([[dz, dx], [1, 1], [1]])
-D = ConvNet([[dx, 1],  [1, 1], [1]])
+G = Affine(3, 6)
+D = View([1]) @ ConvNet([[dx, 12, 1],  
+                         [1,  1, 1], 
+                         [1,  1]])    @ View([dx, 1])
 
 #--- hyperplane 
-x_true = torch.randn([N, dx, 1])
+x_true = torch.randn([N, dx])
 x_true += (.2 - x_true.mean())
 #--- generated distribution
-z = torch.randn([N, dz, 1])
+z = torch.randn([N, dz])
 x_gen = G(z)
 #--- labels
 xs = torch.cat([x_gen, x_true])
 ys = (torch.tensor([0, 1])
         .repeat_interleave(N)
         .flatten())
+
+options     = sys.argv[1] if len(sys.argv) > 1 else ''
 
 class TestWGAN(test.TestCase):
 
@@ -29,7 +39,7 @@ class TestWGAN(test.TestCase):
         self.assertClose(gan(z), x_gen)
 
     def test_wgan_critic(self):
-        D1 = WGANCritic(View([1]) @ ConvNet([[dx, 1], [1, 1], [1]]))
+        D1 = WGANCritic(D)
         gan1 = WGAN(G, D1)
         #--- Critic
         self.assertTrue(isinstance(gan1.critic, WGANCritic))
@@ -37,7 +47,7 @@ class TestWGAN(test.TestCase):
         self.assertTrue(len(D1.clipped) > 0)
     
     def test_wgan_losses(self):
-        gan = WGAN(G, View([1]) @ D)
+        gan = WGAN(G, D)
         #--- critic loss:    E[c(x_true)] - E[c(x_gen)]
         c_loss = gan.critic.loss_on(xs, ys)
         #--- generator loss: E[c(x_true)] - E[gen(z)]
@@ -45,26 +55,30 @@ class TestWGAN(test.TestCase):
         self.assertTrue(c_loss.dim() == 0)
         self.assertTrue(w_loss.dim() == 0)
 
-    @unittest.skip("optional WGAN fit")
-    def test_wgan_fit(self):
-        N, Nb = 200, 40
-        gan = WGAN(G, D)
-        gan.n_critic = 100
+    @test.skipFit("WGAN", "6d-embedding of a 3d-gaussian")
+    def test_wgan_fit(self, writer):
+        gan = WGAN(G, D, ns, lr_gen, clip=clip)
+        gan.writer = writer
         #--- input 3d-seeds
-        z = torch.randn([N, Nb, 3, 1])
+        z = torch.randn([N, Nb, 3])
         #--- observed 3d-distribution
-        x = .3 + torch.randn([N * Nb, 6])
+        x = .3 + (.8 * torch.randn([N * Nb, 6]))
         P = torch.tensor([[1, 0, 0, 0, 0, 0],
                           [0, 1, 0, 0, 0, 0],
                           [0, 0, 1, 0, 0, 0]]).float()
         proj = P.T @ P
-        x_true = (proj @ x.T).T.view([N, Nb, 6, 1])
+        x_true = (proj @ x.T).T.view([N, Nb, 6])
         #--- backprop 
         dset =  [(zi, xi) for zi, xi in zip(z, x_true)]
-        gan.fit(dset, lr=1e-3, epochs=1, progress=False)
+        print(f"\n\tn_gen: {gan.n_gen} \tlr_gen: {lr_gen}")
+        print(f"\tn_crit: {gan.n_crit} \tlr_crit: {gan.lr_crit}")
+        print(f"\tclip: {gan.critic.clip_value}\n")
+        gan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag="test")
         #--- generate
         with torch.no_grad():
-            x_gen = gan(z.view([-1, 3, 1]))
+            x_gen = gan(z.view([-1, 3]))
+        print(f"\n\t=> x_gen.mean : {x_gen.mean([0]).flatten().cpu()}")
+        print(f"\t   x_gen.std  : {x_gen.std([0]).flatten().cpu()}")
         #--- test mean ([.3, .3, .3, 0., 0., 0.])
         expect = x_gen.mean()
         result = x_true.mean()
