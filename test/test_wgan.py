@@ -96,7 +96,7 @@ class TestCWGAN(test.TestCase):
 
     @unittest.skipUnless(test.fit, 'optional CWGAN fit')
     def test_conditional_wgan_fit(self):
-        N, Nb = 200, 256
+        N, Nb = 300, 256
         E = lambda x: x[:,1:]
         G = Affine(1, 2)
         D = View([1]) @ ConvNet([[3, 3, 1], [1, 1, 1], [1, 1]]) @ View([3, 1])
@@ -112,9 +112,9 @@ class TestCWGAN(test.TestCase):
         dset = [(zi, xi) for zi, xi in zip(z, x_true)]
         cgan.cuda()
         print(f"\nFitting conditional WGAN on {N} batches of size {Nb}:")
-        cgan.n_crit  = 100
-        cgan.lr_crit = 1e-2
-        print(f"\ncritic: \tn_it = {cgan.n_crit} \tcritic lr = {cgan.lr_crit}")
+        cgan.n_crit  = 500
+        cgan.lr_crit = 1e-3
+        print(f"\ncritic: \tn_it = {cgan.n_crit} \tlr = {cgan.lr_crit}")
         cgan.fit(dset, lr=1e-3, epochs=5, progress=True)
         #--- generate
         z = z.view([-1, 1])

@@ -50,6 +50,9 @@ def try_envdir (name):
     print(f"warning: ${name} is undefined, falling back to $PWD\n")
     return os.getcwd()
 
+def join_envdir (envname, path):
+    """ Return $envname/path or $PWD/path """
+    return os.path.join(try_envdir(envname), path)
 
 def generate_filename(dirname, prefix='module', config=None, use_date=True):
     """ 
