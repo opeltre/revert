@@ -41,7 +41,7 @@ class KMeans(Module):
         ids = torch.sort(d, -1).indices[:,0]
         del d, m
         torch.cuda.empty_cache()
-        return ids
+        return ids.to(x.device)
 
     def init (self, x):
         """ K-means ++ initialization on a dataset x."""
@@ -61,8 +61,9 @@ class KMeans(Module):
     def loss (self, c, x):
         """ Sum of squared distances to cluster centers. """
         m = self.centers
-        N = torch.zeros([self.k]).scatter_add_(0, c, torch.ones(c.shape))
-        return ((x - m[c])**2 / N[c,None]).sum() / 2
+        N = (torch.zeros([self.k], device=m.device)
+                .scatter_add_(0, c, torch.ones(c.shape, device=m.device)))
+        return ((x - m[c])**2 / N[c,None]).sum() / (2 * self.k * m.shape[-1])
     
     def loss_on(self, x):
         return self.loss(self(x), x)
@@ -82,6 +83,42 @@ class KMeans(Module):
         if not self.centers.shape[-1] == xs[0].shape[-1]:
             self.init(xs[0])
         if not "optim" in kws and not "lr" in kws:
-            optim = SimpleEuler(self.parameters(), lr=1.)
+            dim = self.centers.shape[-1]
+            optim = SimpleEuler(self.parameters(), lr=float(self.k * dim))
             kws["optim"] = optim
         return super().fit(xs, epochs=epochs, **kws)
+
+    def nearest (self, n, x, pred=None):
+        """ Return indices of nearest samples from cluster centers. """
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
+        ds = torch.cdist(self.centers, x)
+        _, ids = torch.sort(ds, dim=-1)
+        return ids[:,:n]
+
+    def counts (self, x, pred=None):
+        """ Return tensor of predictions and number of elements per cluster."""
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
+        Nc = (torch.zeros([self.k], device=x.device)
+                .scatter_add_(0, c, torch.ones(c.shape, device=x.device)))
+        return Nc
+
+    def vars (self, x, pred=None):
+        """ Clusterwise variances. """
+        out = torch.zeros([self.k], device=x.device)
+        m = self.centers
+        c = self.predict(x) if isinstance(pred, type(None)) else pred
+        N = self.counts(x)
+        return ((x - m[c]) ** 2 / N[c][:,None]).sum([-1])
+
+    def stdevs (self, x, pred=None):
+        """ Clusterwise standard deviations. """
+        var = self.vars(x, pred)
+        return torch.sqrt(var)
+    
+    @torch.no_grad()
+    def sort(self, x):
+        Nc = self.counts(x)
+        _ , idx = Nc.sort(descending=True)
+        self.centers = nn.Parameter(self.centers[idx])
+        self.free(Nc, idx)
+        return self
