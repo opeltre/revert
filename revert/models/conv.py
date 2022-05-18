@@ -44,7 +44,9 @@ class ConvNet(Module):
         i = 0
         for n0, c0, w0, s0, n1, c1 in zip(n[:-1], c[:-1], w, s, n[1:], c[1:]):
             conv = Conv1d(c0, c1, w0, s0)
-            pool = nn.MaxPool1d(n0 // n1) 
+
+            pool = (nn.MaxPool1d(n0 // n1) if n0 // n1 >= 1 else
+                    nn.Upsample(n1, mode='linear', align_corners=False))
             setattr(self, f'conv{i}', conv)
             setattr(self, f'pool{i}', pool)
             i += 1
