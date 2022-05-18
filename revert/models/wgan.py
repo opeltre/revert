@@ -141,15 +141,16 @@ class WGANCritic (Module):
         for name, p in self.model.named_parameters():
             if all(not re.match(e, name) for e in self.exclude):
                 self.clipped.append(p)
-        self.iter_callbacks.append(torch.no_grad()(self.clip))
+        self.iter_callbacks.append(self.clip)
     
     def clip(self, *xs):
         """
         Clip model weights without constraining biases.
         """
         k = self.clip_value
-        for p in self.clipped:
-            p.clip_(-k, k)
+        with torch.no_grad(): 
+            for p in self.clipped:
+                p.clip_(-k, k)
 
     def loss(self, fx, y):
         """ 
