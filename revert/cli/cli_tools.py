@@ -9,7 +9,7 @@ def arg_parser():
     """
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--input', '-i', type=str, metavar="path_to_input_file_state",
+    parser.add_argument('--input', '-i', type=str, metavar="input state",
         help="""
         Initial model state path, should target an existing '.pt' file (default=None).
 
@@ -17,7 +17,7 @@ def arg_parser():
         is defined, the state file will be looked inside this folder.
         Model is randomly initialized otherwise.
         """)
-    parser.add_argument('--output', '-o', type=str, metavar="path to dataset",
+    parser.add_argument('--output', '-o', type=str, metavar="output state and logs",
         help="""
         Path where final model state should be saved (default=None).
 
@@ -71,27 +71,17 @@ def generate_filename(dirname, prefix='module', config=None, use_date=True):
     basename = f"{prefix}-{daykey}" if use_date else prefix
     # config
     if config:
-        toml_dict = toml.load(config)
         files_list = []
-        for key in toml_dict.keys():
-            params = toml_dict[key]['hparams']
-            if isinstance(params['n_batch'], list) and isinstance(params['lr'], list):
-                if len(params['n_batch']) != len(params['lr']):
-                    raise Exception(f"n_batch and lr lists from config file for {key} are not compatible in sizes")
-            elif isinstance(params['n_batch'], list):
-                params['lr'] = [params['lr']] * len(params["n_batch"])
-            elif isinstance(params['lr'], list):
-                params['n_batch'] = [params['n_batch']] * len(params["lr"])
-            else:
-                params['n_batch'] = [params['n_batch']]
-                params['lr'] = [params['lr']]
-            for n, lr in zip(params["n_batch"], params["lr"]):
-                fullname = f"{basename}-{key}-{n}-{lr}"
+        if 'models' in config: 
+            for key, model in config['models'].items():
+                for name, val in model.items():
+                    name = basename.replace(f'{name}', str(val))
+                name = basename.replace('{model}', key)
                 num = 1
-                while os.path.exists(os.path.join(dirname, f"{fullname}-{num}.pt")):
+                while os.path.exists(os.path.join(dirname, f"{basename}-{num}.pt")):
                     num += 1
-                files_list.append(os.path.join(dirname, f"{fullname}-{num}.pt"))
-        return files_list
+                files_list.append(os.path.join(dirname, f"{basename}-{num}.pt"))
+            return files_list
     else:
         # next slot from prefix
         num = 1
@@ -125,8 +115,28 @@ def read_args(parser, name='module', datatype=None, **defaults):
         args.config = (args.config if os.path.isabs(args.config)
                                  else os.path.join(configs_dir, args.config))
         print(f"> using {args.config} as config file")
-    else:
-        print("> using default architecture and hyperparameters")
+        args.config = toml.load(args.config)
+    
+    #--- map read_args over config['model']
+    if args.config and "model" in args.config:
+        basename = (args.config["basename"] if "basename" in args.config 
+                    else name)
+        args.models = []
+        # loop over architectures
+        for key, model in args.config['model'].items():
+            N = max(len(val) for val in model.values())
+            m, name = {}, basename
+            # loop over parameters
+            for i in range(N):
+                name = name.replace('{model}', key)
+                for p, val_p in model.items(): 
+                    m[p] = val_p[i % len(val_p)]
+                    name = name.replace('{' + p + '}', str(m[p]))
+                m['name'] = name
+                m['output'] = os.path.join(models_dir, f'{name}.pt')
+                m['writer'] = os.path.join(logs_dir, f'{name}')
+        args.models.append(m)
+        return args
 
     #--- Input
     if args.input:
@@ -144,6 +154,7 @@ def read_args(parser, name='module', datatype=None, **defaults):
             args.output = os.path.extsep.join((args.output, "pt"))
         args.output = (args.output if os.path.isabs(args.output)
                                  else os.path.join(models_dir, args.output))
+
     else:
         args.output = generate_filename(models_dir, name, args.config)
     print(f"> save final {name} state as {args.output}")
