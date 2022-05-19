@@ -7,19 +7,27 @@ import revert.plot as rp
 import revert.cli  as cli
 
 from revert.models import ConvNet, Affine, Linear, View,\
-                          WGAN, Twins, Pipe, Linear
-dz, dx = 16, 64
+                          WGAN, Twins, Pipe, Linear, Module
+dz, dx = 8, 64
 
 ns = (5, 500)           # (n_gen, n_crit)   : respective number of iterations
 lr = (5e-3, 5e-3)       # (lr_gen, lr_crit) : respective learning rates 
-clip = .7               # critic.clip_value : Lipschitz constraint
+clip = .2               # critic.clip_value : Lipschitz constraint
 n_batch = 512
 
 args = cli.parse_args(dirname='pulse-gen',
-                      output=f'WGAN-16:64-clip:{clip}.pt',
+                      output=f'WGAN-16:2x64-clip:{clip}-ns:{ns}-lr:{lr}-test.pt',
                       datatype='infusion',
                       epochs=20,
+                      device='cuda:0',
                       data='baseline-no_shunt.pt')
+
+class MaskMul(Module):
+    """ Multiply first channel by masks."""
+    def forward(self, x):
+        x_mask = x.prod(1).unsqueeze(1)
+        return torch.cat([x_mask, x[:,1:]], dim=1)  
+
 
 def main (args):
     
@@ -29,16 +37,16 @@ def main (args):
     # generator
     G = Pipe(Linear(dz, 64),
              View([8, 8]),
-             ConvNet([[8, 32, 1],
+             ConvNet([[8, 32, 2],
                       [8, 32, 64],
-                      [4,  4]]),
-             Affine(1, 1),
-             View([64]))
+                      [4,  8]]),
+             Affine(2, 2, dim=-2),
+             MaskMul())
     
     # critic
-    D = Pipe(Affine(1, 1),
-             View([1, 64]),
-             ConvNet([[1,  32, 16],
+    D = Pipe(Affine(2, 2, dim=-2),
+             View([2, 64]),
+             ConvNet([[2,  32, 16],
                       [64, 16, 4],
                       [8,  8]]),
              View([64]),
@@ -49,15 +57,18 @@ def main (args):
     # (seed, sample) pairs
     pulses = (nn.AvgPool1d(2)(data['pulses'])
                 .view([-1, 64]))
+    masks = (nn.AvgPool1d(2)(data['masks'])
+                .view([-1, 64]))
     
     N = (pulses.shape[0] // n_batch) * n_batch
     idx = torch.randperm(N)
 
-    x_true = (pulses[:N][idx]
-                .reshape([-1, n_batch, 64])
-                .cuda())
+    x_true = (torch.stack([pulses[:N], masks[:N]], dim=1)
+                [idx]
+                .reshape([-1, n_batch, 2, 64])
+                .to(args.device))
 
-    z_gen = torch.randn(N // n_batch, n_batch, dz).cuda()
+    z_gen = torch.randn(N // n_batch, n_batch, dz).to(args.device)
     
     # critic iterations
     dset = [(zi, xi) for zi, xi in zip(z_gen, x_true)]
@@ -66,7 +77,7 @@ def main (args):
         # Optimize WGAN loss
         print(f"Fitting WGAN on {N} pulses")
         gan.writer = SummaryWriter(args.writer)
-        gan.cuda()
+        gan.to(args.device)
         l0 = gan.loss_on(z_gen[0], x_true[0], 1000)
         gan.fit(dset, lr=lr[0], epochs=args.epochs, tag="critic score")
         gan.critic.episode_callbacks = []
@@ -74,10 +85,10 @@ def main (args):
     
     @gan.epoch
     def plot_samples(tag, data, epoch):
-        z = torch.randn(16, dz).cuda()
+        z = torch.randn(16, dz).to(args.device)
         with torch.no_grad():
             x_gen = gan(z).cpu()
-        fig = rp.pulses(x_gen)
+        fig = rp.pulses(x_gen[:,0])
         gan.writer.add_figure(f"Samples at epoch {epoch + 1}", fig)
     
     gan.N_crit = 0
