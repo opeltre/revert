@@ -8,17 +8,17 @@ import revert.cli  as cli
 
 from revert.models import ConvNet, Affine, Linear, View,\
                           WGAN, Twins, Pipe, Linear
-dz, dx = 8, 64
+dz, dx = 16, 64
 
-ns = (20, 500)          # (n_gen, n_crit)   : respective number of iterations
-lr = (1e-2, 5e-3)       # (lr_gen, lr_crit) : respective learning rates 
-clip = .6               # critic.clip_value : Lipschitz constraint
-n_batch = 256
+ns = (5, 500)           # (n_gen, n_crit)   : respective number of iterations
+lr = (5e-3, 5e-3)       # (lr_gen, lr_crit) : respective learning rates 
+clip = .7               # critic.clip_value : Lipschitz constraint
+n_batch = 512
 
 args = cli.parse_args(dirname='pulse-gen',
-                      output='WGAN-8:64',
+                      output=f'WGAN-16:64-clip:{clip}.pt',
                       datatype='infusion',
-                      epochs=50,
+                      epochs=20,
                       data='baseline-no_shunt.pt')
 
 def main (args):
@@ -27,20 +27,22 @@ def main (args):
     #encoder = Twins.load(args.input).model
     
     # generator
-    G = Pipe(Linear(8, 64),
+    G = Pipe(Linear(dz, 64),
              View([8, 8]),
-             ConvNet([[8, 16, 1],
+             ConvNet([[8, 32, 1],
                       [8, 32, 64],
-                      [4, 8]]),
+                      [4,  4]]),
              Affine(1, 1),
              View([64]))
     
     # critic
-    D = Pipe(View([1, 64]),
-             ConvNet([[1,  32, 8, 1],
-                      [64, 16, 1, 1],
-                      [8,  16, 1]]),
-             View([1]))
+    D = Pipe(Affine(1, 1),
+             View([1, 64]),
+             ConvNet([[1,  32, 16],
+                      [64, 16, 4],
+                      [8,  8]]),
+             View([64]),
+             Linear(64, 1))
     
     gan = WGAN(G, D, ns=ns, lr_crit=lr[1], clip=clip)
 
@@ -55,8 +57,9 @@ def main (args):
                 .reshape([-1, n_batch, 64])
                 .cuda())
 
-    z_gen = torch.randn(N // n_batch, n_batch, 8).cuda()
+    z_gen = torch.randn(N // n_batch, n_batch, dz).cuda()
     
+    # critic iterations
     dset = [(zi, xi) for zi, xi in zip(z_gen, x_true)]
     
     def fit ():
@@ -64,17 +67,27 @@ def main (args):
         print(f"Fitting WGAN on {N} pulses")
         gan.writer = SummaryWriter(args.writer)
         gan.cuda()
+        l0 = gan.loss_on(z_gen[0], x_true[0], 1000)
         gan.fit(dset, lr=lr[0], epochs=args.epochs, tag="critic score")
+        gan.critic.episode_callbacks = []
         gan.save(args.output)
-
+    
     @gan.epoch
     def plot_samples(tag, data, epoch):
-        if epoch % 10 != 9:
-            return "skipped"
-        z = torch.randn(12, 8).cuda()
+        z = torch.randn(16, dz).cuda()
         with torch.no_grad():
             x_gen = gan(z).cpu()
         fig = rp.pulses(x_gen)
         gan.writer.add_figure(f"Samples at epoch {epoch + 1}", fig)
+    
+    gan.N_crit = 0
+
+    @gan.critic.episode
+    def log_wasserstein(tag, data):
+        x, y = data['train'][0]
+        with torch.no_grad():
+            loss = - gan.critic.loss_on(x, y)
+        gan.write("Wasserstein estimate", loss, gan.N_crit)
+        gan.N_crit += 1
 
     fit()
