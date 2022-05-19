@@ -10,9 +10,12 @@ except:
 srcdir  = os.path.join(path, "full")
 destdir = os.path.join(path, "no_shunt")
 
-def is_shunted(file): 
+def is_shunted(file):
     res = file.results()
     return "Shunt critical ICP [mmHg]" in res
+    # This criterion fails if shunt was not defined in the ICM+ analysis tool. Such cases, however, are rare.
+    # So, it is a reasonable filtering criterion until there is independent and complete database of Cambridge
+    # infusion patients.
 
 def main(): 
     # create $INFUSION_DATASETS/no_shunt
