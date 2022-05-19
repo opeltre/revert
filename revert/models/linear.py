@@ -11,6 +11,8 @@ class Affine(Module):
         self.d_in  = d_in
         self.d_out = d_out
         self.dim = dim
+        self.weight = self.module.weight
+        self.bias   = self.module.bias 
     
     def forward(self, x):
         if self.d_in == 1 and self.d_out == 1:
