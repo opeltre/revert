@@ -147,6 +147,23 @@ class Module (nn.Module):
             for key, value in data.items():
                 writer.add_text(key , str(value))
 
+    def write_to(self, path=None):
+        """ Initialize tensorboard writer. """
+        if isinstance(path, str):
+            self.writer = SummaryWriter(path)
+
+    def freeze (self): 
+        """ Freeze parameters. """
+        for p in self.parameters():
+            p.requires_grad = False
+        return self
+
+    def unfreeze (self):
+        """ Unfreeze parameters. """
+        for p in self.parameters():
+            p.requires_grad = True
+        return self
+
     def __matmul__ (self, other):
         """ Composition of modules. """
         if isinstance(other, Pipe) and isinstance(self, Pipe):
@@ -155,12 +172,20 @@ class Module (nn.Module):
             return Pipe(other, *self.modules)
         if isinstance(other, Pipe):
             return Pipe(*other.modules, self)
-        return Pipe(other, self)
- 
-    def write_to(self, path=None):
-        if isinstance(path, str):
-            self.writer = SummaryWriter(path)
+        return Pipe(other, self) 
 
+    def __or__(self, other):
+        """ 
+        Cartesian product (parallel application).
+        """
+        if isinstance(other, Prod) and isinstance(self, Prod):
+            return Prod(*other.modules, *self.modules)
+        if isinstance(self, Prod):
+            return Prod(other, *self.modules)
+        if isinstance(other, Prod):
+            return Prod(*other.modules, self)
+        return Prod(other, self) 
+        
     @classmethod
     def load (cls, path, env="REVERT_MODELS"):
         """
@@ -213,7 +238,7 @@ class Pipe (Module):
         self.modules = modules
 
         for i, mi in enumerate(self.modules):
-            setattr(self, f'module{i}', mi)
+             setattr(self, f'module{i}', mi)
 
     def forward (self, x):
         xs = [x]
@@ -226,3 +251,85 @@ class Pipe (Module):
 
     def loss(self, y, *ys):
         return self.modules[-1].loss(y, *ys)
+    
+
+class Prod (Module):
+    """ 
+    Cartesian product of modules (parallel application).
+    """
+
+    def __init__(self, *modules, shapes=None):
+        self.modules = module
+        self.cat = Cat()
+        if not shapes and all("shape_in" in dir(mi) for mi in modules):
+            shapes = [m.shape_in for m in modules]
+        if shapes:
+            self.cut = Cut(shapes)
+    
+    def forward(self, x):
+        if "cut" in dir(self):
+            xs = self.cut(x)
+            y  = self.cat([mi(xi) for mi, xi in zip(self.modules, xs)])
+            return y
+        raise RuntimeError(f"Trying to cut {tuple(x.shape)} ignoring output shapes.")
+        
+
+class Skip (Module):
+    """ 
+    Apply a module to the (input, output) pair of an other module.class Cat (Module).
+    """
+    
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, xs):
+        d = self.dim
+        return self.cat([x.flatten(d) for x in xs], dim=d)
+
+
+class Cut (Module):
+    """
+    Cut input into specified shapes. 
+    """
+    def __init__(self, *shapes):
+        prod = lambda n, *ns: (n * prod(ns) if ns else 1)
+        self.shapes = shapes
+        self.sizes  = [prod(*(ni for ni in s)) for s in shapes]
+        self.shape_in = [sum(Nk for Nk in self.sizes)]
+        self.shape_in = sum(prod(ni for ni in s) for s in shapes)
+    
+    def forward(self, x):
+        xs, begin = [], 0
+        for Nk, sk in zip(self.sizes, self.shapes):
+            x     += [xs[begin:begin+Nk].reshape(sk)]
+            begin += Nk
+        return xs
+
+
+class Cat(Module):
+    """ 
+    Concatenate inputs along specified dim.
+    """
+
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, xs):
+        d = self.dim
+        return self.stack([x.flatten(d) for x in xs], dim=d)
+
+
+class Stack(Module):
+    """ 
+    Stack inputs along specified dim.
+    """
+
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, xs):
+        d = self.dim
+        return self.stack([x.flatten(d) for x in xs], dim=d)
