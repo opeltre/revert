@@ -14,17 +14,14 @@ class WGAN (Module):
         """ Conditional WGAN instance. """
         return ConditionalWGAN(G, D, E, *args, **kargs)
 
-    def __init__(self, generator, critic, ns=(10, 1000), lr_crit=5e-3, clip=1):
+    def __init__(self, generator, critic, ns=(10, 1000), lr_crit=5e-3):
         """
         Initialize WGAN from generator G and critic D. 
         """
         super().__init__()
         self.gen    = generator
-
         self.critic = (critic if isinstance(critic, WGANCritic) 
-                             else WGANCritic(critic))
-        self.critic.clip_value = clip 
-
+                             else Lipschitz(critic))
         n_gen, n_crit = ns
         self.n_gen   = n_gen 
         self.n_crit  = n_crit
@@ -121,10 +118,19 @@ class ConditionalWGAN(WGAN):
 
 class WGANCritic (Module):
     """ 
-    Wasserstein critic enforcing Lipschitz constraint by parameter clipping.
+    Wasserstein estimator.
+
+    The critic f tries to maximize the expectation difference:
+
+        E[f(x_true)] - E[f(x_gen)]
+
+    When f is constrained to a Lipschitz-sphere this gives 
+    an estimator of W(x_gen, x_true).
+
+    N.B: Do not use directly but use a subclass e.g. Lipschitz or Clipped. 
     """
 
-    def __init__(self, critic, exclude=(), clip=1):
+    def __init__(self, critic):
         """
         Initialize from a model and clip-exclude patterns.
 
@@ -134,6 +140,111 @@ class WGANCritic (Module):
         """
         super().__init__()
         self.model  = critic
+
+    
+    def wasserstein(self, fx, y):
+        """ 
+        Difference of expectations on true and generated data. 
+        """
+        true, gen   = y, 1 - y
+        return ((fx * true).sum() / true.sum())\
+             - ((fx * gen).sum() / gen.sum())
+
+    def wasserstein_on(self, x, y):
+        return self.wasserstein(self(x), y)
+
+    def loss(self, fx, y):
+        """ 
+        Difference of expectations on true and generated data. 
+        """
+        return - self.wasserstein(fx, y)
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class Lipschitz (WGANCritic):
+    
+    def __init__(self, critic, beta=1., temp_k=.1, n_pairs=64):
+        super().__init__(critic)
+        self.beta = beta 
+        self.k = 1
+        self.n_pairs = n_pairs
+        self.temp_k  = temp_k
+        self.extrema = None
+
+    def loss(self, fx, y, x):
+        """
+        Expectation difference with Lipschitz penalty. 
+        
+        Estimate the Lipschitz constant k(f) and add it the Wasserstein estimate:
+            
+                beta * k(f) + E[f(x_true)] - E[f(x_gen)]
+            
+              = beta * k(f) + E[f(x) * y]
+
+        The minimum of this function at fixed beta computes the Legendre transform 
+        of k evaluated on the the linear form `(y * p_x) / beta`. 
+
+        The differentials beta * (dk / df) and (dW / df) then compensate so that f 
+        is critical for W constrained to a sphere k(f) = cst. 
+
+        N.B: minimizing k(f) can be viewed as a form of entropic constraint on f, 
+        so that W + beta * k is the free energy associated to the energy term W.
+        """
+        W = super().wasserstein(fx, y)
+        k = self.lipschitz(fx, y, x)
+        return - W + self.beta * k
+    
+    def lipschitz(self, fx, y, x):
+        """ 
+        Estimate the Lipschitz constant. 
+
+        Maximizers of the dfx/dx ratio are buffered 
+        to improve the quality of the estimator over time. 
+        """
+        # populate buffer
+        n, ns  = self.n_pairs, x.shape[1:]
+        if isinstance(self.extrema, type(None)):
+            self.extrema = torch.randn([n, 2, *ns]).to(x.device)
+        # pairwise input and output distances
+        s = torch.randperm(x.shape[0])
+        with torch.no_grad():
+            dx = (x - x[s]).flatten(1).norm(2, [1]) + 1e-6
+            dy = (fx - fx[s]).flatten(1).norm(2, [1])
+            k_in = dy / dx
+        # update buffer
+        i = k_in.argmax() 
+        x_max = self.extrema
+        if k_in[i] >= self.k: 
+           with torch.no_grad():
+               x_max[0, 0] = x[i]
+               x_max[0, 1] = x[s[i]]
+               self.extrema = x_max.roll(1, 0)
+        # Lipschitz ratio estimate
+        y_max = self(x_max.view([2 * n, *ns])).view([n, 2])
+        dx_max = (x_max[:,0] - x_max[:,1]).flatten(1).norm(2, [1]) 
+        dy_max = (y_max[:,0] - y_max[:,1]).abs()
+        k = dy_max / dx_max
+        k = (k * torch.softmax(k / self.temp_k, 0)).sum()
+        self.k = k.detach()
+        return k
+    
+    def wasserstein(self, fx, y):
+        return super().wasserstein(fx, y) / self.k
+    
+    def wasserstein_on(self, x, y):
+        return super().wasserstein_on(x, y) / self.k
+
+    def loss_on (self, x, y):
+        fx = self(x)
+        return self.loss(fx, y, x)
+
+
+class Clipped (WGANCritic): 
+
+    def __init__(self, critic, exclude=(), clip=1):
+        super().__init__(critic)
         self.exclude = exclude
         self.clip_value = clip
         #--- register clipped parameters 
@@ -148,17 +259,7 @@ class WGANCritic (Module):
         Clip model weights without constraining biases.
         """
         k = self.clip_value
-        with torch.no_grad(): 
-            for p in self.clipped:
-                p.clip_(-k, k)
-
-    def loss(self, fx, y):
-        """ 
-        Difference of expectations on true and generated data. 
-        """
-        true, gen   = y, 1 - y
-        return - ((fx * true).sum() / true.sum())\
-               + ((fx * gen).sum() / gen.sum())
-
-    def forward(self, x):
-        return self.model(x)
+        for p in self.clipped:
+            if p.requires_grad:
+                with torch.no_grad(): 
+                    p.clip_(-k, k)

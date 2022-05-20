@@ -3,7 +3,8 @@ import unittest
 import torch
 import sys
 
-from revert.models import WGAN, WGANCritic, ConvNet, View, Affine
+from revert.models import WGAN, WGANCritic, Clipped,\
+                          ConvNet, View, Affine
 
 ns = (10, 500)  # (n_gen, n_crit)
 lr_gen, lr_crit = (5e-3, 5e-3)
@@ -40,7 +41,7 @@ class TestWGAN(test.TestCase):
         self.assertClose(gan(z), x_gen)
 
     def test_wgan_critic(self):
-        D1 = WGANCritic(D)
+        D1 = Clipped(D)
         gan1 = WGAN(G, D1)
         #--- Critic
         self.assertTrue(isinstance(gan1.critic, WGANCritic))
