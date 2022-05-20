@@ -1,6 +1,7 @@
 torch
 torchvision
 tensorboard
+matplotlib
 tqdm
 toml
 h5py

@@ -25,5 +25,9 @@ class TestConvNet (test.TestCase):
         expect = (N, 8, 1)
         self.assertEqual(expect, result)
 
-        
+        conv3 = ConvNet([[2, 4], [3, 6], [2]])
+        x3 = torch.randn(N, 2, 3)
+        result = tuple(conv3(x3).shape)
+        expect = (N, 4, 6)
+        self.assertEqual(expect, result)
         
