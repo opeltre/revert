@@ -6,7 +6,7 @@ import xml.etree.ElementTree as xml
 import math
 from datetime import datetime, timezone
 import os
-from icm_hdf5_reader_module import SignalClass
+from .icm_hdf5_reader_module import SignalClass
 
 
 def unixTimeICM (string): 
