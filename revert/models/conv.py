@@ -76,3 +76,6 @@ class ConvNet(Module):
     
     def loss(self, y, y_tgt):
         return ((y - y_tgt)**2).mean()
+
+    def __repr__(self):
+        return f'Conv({self.layers})'

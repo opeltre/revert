@@ -13,6 +13,12 @@ class Affine(Module):
         self.dim = dim
         self.weight = self.module.weight
         self.bias   = self.module.bias
+    
+    @torch.no_grad()
+    def set(self, weight, bias=None):
+        self.weight = nn.Parameter(weight)
+        if bias:
+            self.bias = nn.Parameter(bias)
 
     def forward(self, x):
         if self.d_in == 1 and self.d_out == 1:
@@ -28,8 +34,14 @@ class Affine(Module):
             y = y.reshape([*ns[:-1], self.d_out])
             return y if self.dim == -1 else y.transpose(-1, self.dim)
         raise TypeError(f"Invalid shape {x.shape} for d_in={self.d_in}")
+    
+    def __repr__(self):
+        return f'Affine({self.d_in}, {self.d_out}, dim={self.dim})'
 
 class Linear(Affine):
 
     def __init__(self, d_in, d_out, dim=-1):
         super().__init__(d_in, d_out, dim, False)
+        
+    def __repr__(self):
+        return f'Linear({self.d_in}, {self.d_out}, dim={self.dim})'
