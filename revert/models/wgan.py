@@ -177,24 +177,24 @@ class Lipschitz (WGANCritic):
         """
         Expectation difference with Lipschitz penalty.
 
-        Estimate the Lipschitz constant k(f) and add it the Wasserstein estimate:
+        Estimate the Lipschitz constant k(f) and add its square to the Wasserstein estimate:
 
-                beta * k(f) + E[f(x_true)] - E[f(x_gen)]
+                beta * k(f)^2 + E[f(x_true)] - E[f(x_gen)]
 
-              = beta * k(f) + E[f(x) * y]
+              = beta * k(f)^2 + E[f(x) * y]
 
         The minimum of this function at fixed beta computes the Legendre transform
         of k evaluated on the the linear form `(y * p_x) / beta`.
 
-        The differentials beta * (dk / df) and (dW / df) then compensate so that f
+        The differentials beta * (dk^2 / df) and (dW / df) then compensate so that f
         is critical for W constrained to a sphere k(f) = cst.
 
-        N.B: minimizing k(f) can be viewed as a form of entropic constraint on f,
-        so that W + beta * k is the free energy associated to the energy term W.
+        N.B: minimizing k(f)^2 can be viewed as a form of entropic constraint on f,
+        so that W + beta * k^2 is the free energy associated to the energy term W.
         """
         W = super().wasserstein(fx, y)
         k = self.lipschitz(fx, y, x)
-        return - W + self.beta * k
+        return - W + self.beta * k ** 2
 
     def lipschitz(self, fx, y, x):
         """
