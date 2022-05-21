@@ -1,4 +1,4 @@
 [fit]
 KMeans  = true
-WGAN    = true
-CWGAN   = true
+#WGAN    = true
+#CWGAN   = true
