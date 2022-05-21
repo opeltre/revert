@@ -17,7 +17,7 @@ class Affine(Module):
     @torch.no_grad()
     def set(self, weight, bias=None):
         self.weight = nn.Parameter(weight)
-        if bias:
+        if isinstance(bias, nn.Parameter):
             self.bias = nn.Parameter(bias)
 
     def forward(self, x):

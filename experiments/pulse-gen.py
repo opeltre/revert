@@ -11,15 +11,15 @@ from revert.models import WGAN, Lipschitz, Twins,\
 
 dz = 8              # seed dimension
 dx = 64             # pulse dimension
-ns = (5,   500)     # (n_gen, n_crit)   : respective number of iterations
-lr = (1e-4, 5e-4)   # (lr_gen, lr_crit) : respective learning rates 
+ns = (10,   500)    # (n_gen, n_crit)   : respective number of iterations
+lr = (1e-3, 1e-3)   # (lr_gen, lr_crit) : respective learning rates 
 n_batch = 512
-beta = 3
+beta = 1.
 
-mask = False
+mask = True
 c = 1 if not mask else 2
 
-layers_G = [[8, 16,  c],
+layers_G = [[8, 32,  c],
             [8, 32, 64],
             [4, 8]]
 
@@ -36,7 +36,7 @@ args = cli.parse_args(dirname   = 'wgan-pulses',
                       n_batch   = n_batch,
                       beta      = beta,
                       device    = 'cuda:0',
-                      std_z     = 0.5,
+                      std_z     = .1,
                       mask      = mask,
                       layers_G  = layers_G,
                       layers_D  = layers_D)
@@ -53,17 +53,25 @@ def generator(args):
 
     # scale output
     scale_out = Affine(c, c, dim=-2)
-    with torch.no_grad():
-        w = torch.tensor([[5., 0.], [0., .5]] if c == 2 else [[5.]])
-        b = torch.tensor([0., 1.5] if c == 2 else [0.01])
-        scale_out.weight = nn.Parameter(w)
-        scale_out.bias   = nn.Parameter(b)
 
     G = Pipe(Linear(dz, 64),
              View([8, 8]),
              ConvNet(args.layers_G),
              scale_out,
              MaskMul())
+
+    with torch.no_grad():
+        x = G(args.std_z * torch.randn(512, dz))
+    if c == 1:
+        w = .6 / x.std().view([1, 1])
+        b = - x.mean()
+        scale_out.set(w, b)
+    else: 
+        std0 = x[:,0].std()
+        amp1 = x[:,1].max() - x[:,1].min()
+        w = torch.tensor([[1. / std0, 0.], [0., 1. / amp1]])
+        b = - torch.tensor([x[:,0].mean(), x[:,1].min()])
+        scale_out.set(w, b)
     
     G.conv = Pipe(*G.modules[:-2])
     return G
@@ -141,12 +149,14 @@ def main (args):
 
     def fit_critic():
         print(f"\n------ Initialize critic ------\n")
-        x_gen0 = gan(z_gen[0])
+        x_gen0 = gan(z_gen[0]).detach()
         l0 = gan.loss(x_gen0, x_true[0], 2000)
-        y0 = torch.tensor([0., 1.]).repeat_interleave(nb).to(args.device)
-        W0 = gan.critic.wasserstein_on(torch.cat([x_gen0, x_true[0]]), y0.view([2 * nb, 1]))
-        print(f'\tW(x_gen, x_true) \t=~ {W0}')
-        print(f'\tlipschitz \t=~ {gan.critic.k}')
+        y0 = (torch.tensor([0., 1.]).repeat_interleave(nb)
+                                    .view([2 * nb, 1])
+                                    .to(args.device))
+        W0 = gan.critic.wasserstein_on(torch.cat([x_gen0, x_true[0]]), y0)
+        print(f'\tWasserstein estimate : {W0:.3f}')
+        print(f'\tLipschitz estimate   : {gan.critic.k:.3f}')
 
     def fit ():
         print(f"\n------ Fitting WGAN on {N} pulses ------\n")
