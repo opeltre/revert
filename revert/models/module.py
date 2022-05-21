@@ -263,13 +263,14 @@ class Prod (Module):
     Cartesian product of modules (parallel application).
     """
 
-    def __init__(self, *modules, shapes=None):
-        self.modules = module
-        self.cat = Cat()
-        if not shapes and all("shape_in" in dir(mi) for mi in modules):
-            shapes = [m.shape_in for m in modules]
-        if shapes:
-            self.cut = Cut(shapes)
+    def __init__(self, *modules, ns=None, dim=1, shapes=None):
+        super().__init__()
+        self.modules = modules
+        for i in range(len(modules)):
+            setattr(self, f'module{i}', modules[i])
+        self.dim = dim
+        self.cat = Cat(dim)
+        self.cut = Cut(ns, dim, shapes)
     
     def forward(self, x):
         if "cut" in dir(self):
@@ -297,17 +298,24 @@ class Cut (Module):
     """
     Cut input into specified shapes. 
     """
-    def __init__(self, *shapes):
-        prod = lambda n, *ns: (n * prod(ns) if ns else 1)
-        self.shapes = shapes
-        self.sizes  = [prod(*(ni for ni in s)) for s in shapes]
-        self.shape_in = [sum(Nk for Nk in self.sizes)]
-        self.shape_in = sum(prod(ni for ni in s) for s in shapes)
+    def __init__(self, ns=None, dim=1, shapes=None):
+        super().__init__()
+        self.dim = dim
+        if ns:
+            self.sizes  = ns
+            self.shapes = None
+        elif shapes:
+            prod = lambda n, *ns: (n * prod(ns) if ns else 1)
+            self.sizes  = sum(prod(ni for ni in s) for s in shapes)
+            self.shapes = shapes
     
     def forward(self, x):
         xs, begin = [], 0
-        for Nk, sk in zip(self.sizes, self.shapes):
-            x     += [xs[begin:begin+Nk].reshape(sk)]
+        shapes = self.shapes
+        slc = [slice(None)] * self.dim
+        for k, Nk in enumerate(self.sizes):
+            xk = x[slc + [slice(begin,begin + Nk)]]
+            xs.append(xk.reshape(shapes[k]) if shapes else xk)
             begin += Nk
         return xs
 
@@ -317,13 +325,15 @@ class Cat(Module):
     Concatenate inputs along specified dim.
     """
 
-    def __init__(self, dim=1):
+    def __init__(self, dim=1, flatten=False):
         super().__init__()
         self.dim = dim
+        self.flatten = flatten
 
     def forward(self, xs):
         d = self.dim
-        return self.stack([x.flatten(d) for x in xs], dim=d)
+        return (torch.cat(xs, dim=d) if not self.flatten else
+                torch.cat([x.flatten(d) for x in xs], dim=d))
 
 
 class Stack(Module):
@@ -331,10 +341,12 @@ class Stack(Module):
     Stack inputs along specified dim.
     """
 
-    def __init__(self, dim=1):
+    def __init__(self, dim=1, flatten=False):
         super().__init__()
         self.dim = dim
+        self.flatten = flatten
 
     def forward(self, xs):
         d = self.dim
-        return self.stack([x.flatten(d) for x in xs], dim=d)
+        return (torch.stack(xs, dim=d) if not self.flatten else
+                torch.stack([x.flatten(d) for x in xs], dim=d))
