@@ -16,7 +16,7 @@ def grid (traces, shape=tuple(), title=None, titles=None, c=None, lw=1):
     c = colors() if not c else c
     w      = shape[0]  if len(shape) else 4 
     w, h   = shape[:2] if len(shape) > 1 else (w, ceil(len(traces) / w))
-    sw, sh = shape[2:] if len(shape) > 2 else (4, 4)
+    sw, sh = shape[2:] if len(shape) > 2 else (2, 2)
     fig = plt.figure(figsize=(w * sw, h * sh))
     if title:
         plt.suptitle(title)
@@ -31,16 +31,16 @@ def grid (traces, shape=tuple(), title=None, titles=None, c=None, lw=1):
 
 #--- KMeans plots 
 
-def cluster_grid (km, x, y=None, P=12, avg=False, title="Cluster grid"):
+def cluster_grid (km, x, y=None, P=12, shape=(4, 4), avg=False, title="Cluster grid"):
     if isinstance(y, type(None)): y = x
     ids = km.nearest(P, y)
-    nearest = [x.index_select(0, js) for js in ids]
+    nearest = [x.index_select(0, js).cpu() for js in ids]
     traces  = [xs.T if not avg else xs.mean([0]) for xs in nearest]
-    masses  = km.counts(y) / y.shape[0]
-    vars    = km.vars(y) / y.shape[-1]
-    titles  = [f'[{i}]    mass {100 * mi:.1f}% - var {vars[i]:.2f}'\
+    masses  = (km.counts(y) / y.shape[0]).cpu()
+    stds    = (km.stdevs(y) / y.shape[-1]).cpu()
+    titles  = [f'[{i}]    mass {100 * mi:.1f}% - std {stds[i]:.2f}'\
                     for i, mi in enumerate(masses)]
-    fig = grid(traces, (8, 8), title=title, titles=titles)
+    fig = grid(traces, shape, title=title, titles=titles)
     return fig
 
 def cluster(km, i, x, y=None, P=64, shape=tuple(), **kws):

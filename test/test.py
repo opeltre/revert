@@ -1,9 +1,12 @@
 import unittest
 import torch
+import toml
 import os
 
 from torch.utils.tensorboard import SummaryWriter
 from revert import cli
+
+config = toml.load("config.toml")
 
 class TestCase (unittest.TestCase):
 
@@ -18,10 +21,9 @@ class TestCase (unittest.TestCase):
             print(f"Error {dist / N} >= tolerance {tol}")
         return self.assertTrue(dist < N * tol)
 
-fit  = "REVERT_TEST_FIT" in os.environ and os.environ["REVERT_TEST_FIT"]
-
 def skipFit (name, testinfo=""):
     def skip(unit):
+        fit = name in config["fit"] and config["fit"][name]
         def wrap_unit(self):
             print("\n" + "-" * 12 + f" Fitting {name} : {testinfo} " + "-" * 12)
             path = cli.join_envdir("REVERT_LOGS", f"test/{name}")
