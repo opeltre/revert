@@ -211,7 +211,7 @@ class Lipschitz (WGANCritic):
         # pairwise input and output distances
         s = torch.randperm(x.shape[0])
         with torch.no_grad():
-            dx = (x - x[s]).flatten(1).norm(2, [1]) + 1e-6
+            dx = (x - x[s]).flatten(1).norm(2, [1]) + 1e-5
             dy = (fx - fx[s]).flatten(1).norm(2, [1])
             k_in = dy / dx
         # update buffer
@@ -221,7 +221,7 @@ class Lipschitz (WGANCritic):
            with torch.no_grad():
                x_max[0, 0] = x[i]
                x_max[0, 1] = x[s[i]]
-               self.extrema = x_max.roll(1, 0)
+               self.extrema = x_max.roll(1, 0).detach()
         # Lipschitz ratio estimate
         y_max = self(x_max.view([2 * n, *ns])).view([n, 2])
         dx_max = (x_max[:,0] - x_max[:,1]).flatten(1).norm(2, [1])
@@ -240,11 +240,6 @@ class Lipschitz (WGANCritic):
     def loss_on (self, x, y):
         fx = self(x)
         return self.loss(fx, y, x)
-
-    """
-    def forward(self, x):
-        return super(x) / self.k
-    """
 
 
 class Clipped (WGANCritic):

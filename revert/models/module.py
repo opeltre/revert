@@ -1,10 +1,11 @@
+import os
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
-
-import os
-from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
-from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import TensorDataset, DataLoader
 
 class Module (nn.Module):
     """
@@ -44,13 +45,17 @@ class Module (nn.Module):
             raise RuntimeError("'model.loss' is not defined")
         return self.loss(self.forward(x), *ys, **ks)
 
-    def fit (self, xs, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
+    def fit (self, dset, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
         """ 
         Fit on a N_it x 2 x N_batch x N tensor.
 
-        The iterable 'xs' should yield either tensor / tuple of tensor batches,
+        The iterable 'dset' should yield either tensor / tuple of tensor batches,
         see torch.utils.data.TensorDataset for instance.
         """
+        if isinstance(dset, tuple):
+            xs = TensorDataset(*dset)
+            nb = kws["n_batch"] if "n_batch" in kws else 256
+            dset = DataLoader(xs, shuffle=True, batch_size=nb)
         #--- number of steps between calls to writer
         mod = kws["mod"] if "mod" in kws else 10
         #--- hide progress bar
@@ -63,13 +68,13 @@ class Module (nn.Module):
             scheduler = None
         else:
             scheduler = None
-        N_it = len(xs)
+        N_it = len(dset)
         #--- loop over epochs
         for e in (range(epochs) if not progress else 
                   tqdm(range(epochs), position=0, desc='epoch', colour="green")):
-            l, ntot = 0, len(xs)
+            l = 0
             #--- loop over batches
-            for nit, x in enumerate(xs):
+            for nit, x in enumerate(dset):
                 #--- backprop
                 optim.zero_grad()
                 loss = (self.loss_on(x) if isinstance(x, torch.Tensor)
@@ -89,7 +94,7 @@ class Module (nn.Module):
             if scheduler:
                 scheduler.step()
             #--- epoch callback
-            data = {'train': xs, 'val': val}
+            data = {'train': dset, 'val': val}
             for cb in self.epoch_callbacks: cb(tag, data, e)
         #--- episode callback
         for cb in self.episode_callbacks:   cb(tag, data)

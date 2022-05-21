@@ -80,7 +80,8 @@ class KMeans(Module):
 
             centers -= centers.grad()
         """
-        if not self.centers.shape[-1] == xs[0].shape[-1]:
+        if not self.centers.shape[-1] == xs[0].shape[-1] or\
+               self.centers.norm() == 0:
             self.init(xs[0])
         if not "optim" in kws and not "lr" in kws:
             dim = self.centers.shape[-1]
