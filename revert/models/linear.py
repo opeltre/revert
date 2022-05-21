@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from .module import Module
 
-class Affine(Module): 
+class Affine(Module):
 
     def __init__(self, d_in, d_out, dim=-1, bias=True):
         super().__init__()
@@ -12,23 +12,24 @@ class Affine(Module):
         self.d_out = d_out
         self.dim = dim
         self.weight = self.module.weight
-        self.bias   = self.module.bias 
-    
+        self.bias   = self.module.bias
+
     def forward(self, x):
         if self.d_in == 1 and self.d_out == 1:
             b, w = self.module.bias, self.module.weight
-            y = b.flatten() + w.flatten() * x
+            y = (w.flatten() * x
+                 + (b.flatten() if isinstance(b, torch.Tensor) else 0))
             return y
         if self.dim != -1:
             x = x.transpose(self.dim, -1)
         ns = x.shape
         if self.d_in == x.shape[-1]:
-            y = self.module(x.reshape([-1, ns[-1]])) 
+            y = self.module(x.reshape([-1, ns[-1]]))
             y = y.reshape([*ns[:-1], self.d_out])
             return y if self.dim == -1 else y.transpose(-1, self.dim)
         raise TypeError(f"Invalid shape {x.shape} for d_in={self.d_in}")
 
 class Linear(Affine):
-    
+
     def __init__(self, d_in, d_out, dim=-1):
         super().__init__(d_in, d_out, dim, False)
