@@ -66,7 +66,8 @@ class WGAN (Module):
             self.critic.train(False)
         #--- maximize expectation E[f(x_gen)] over x_gen
         self.critic.train(False)
-        return - self.critic(xs).mean()
+        W = self.critic.wasserstein_on(*data[0])
+        return - self.critic(xs).mean() / W
 
     def forward(self, z):
         """
