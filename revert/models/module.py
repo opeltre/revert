@@ -257,27 +257,60 @@ class Pipe (Module):
     def loss(self, y, *ys):
         return self.modules[-1].loss(y, *ys)
     
+    def index_of(self, g):
+        """ Index of module g in the pipe. """
+        i = None
+        for j, gj in enumerate(self.modules):
+            if gj == g: 
+                i = j
+        if isinstance(i, int): 
+            return i
+        raise RuntimeError(f"Could not find module {g} in pipe.")
+        
+    def until(self, g, strict=True):
+        """ Return pipe section until module g. """
+        if isinstance(g, int):
+            i = g
+        elif isinstance(g, Module):
+            i = self.index_of(g)
+        x = 0 if strict else 1
+        return Pipe(*self.modules[:i+x])
+    
+    def since(self, g, strict=False):
+        """ Pipe section from module g. """
+        if isinstance(g, int):
+            i = g
+        elif isinstance(g, Module):
+            i = self.index_of(g)
+        x = 1 if strict else 0
+        return Pipe(*self.modules[i+x:])
 
+    def __getitem__(self, slc):
+        """ Pipe sections. """
+        if isinstance(slc, int):
+            return self.modules[slc]
+        if isinstance(slc, slice):
+            i0, i1 = slc.start, slc.stop
+            if isinstance(i0, Module):
+                i0 = self.index_of(i0)
+            if isinstance(i1, Module):
+                i1 = self.index_of(i1)
+        return Pipe(*self.modules[i0:i1])
+
+        
 class Prod (Module):
     """ 
     Cartesian product of modules (parallel application).
     """
 
-    def __init__(self, *modules, ns=None, dim=1, shapes=None):
+    def __init__(self, *modules):
         super().__init__()
         self.modules = modules
         for i in range(len(modules)):
             setattr(self, f'module{i}', modules[i])
-        self.dim = dim
-        self.cat = Cat(dim)
-        self.cut = Cut(ns, dim, shapes)
     
     def forward(self, x):
-        if "cut" in dir(self):
-            xs = self.cut(x)
-            y  = self.cat([mi(xi) for mi, xi in zip(self.modules, xs)])
-            return y
-        raise RuntimeError(f"Trying to cut {tuple(x.shape)} ignoring output shapes.")
+        return [mi(xi) for mi, xi in zip(self.modules, x)]
         
 
 class Skip (Module):
@@ -293,6 +326,16 @@ class Skip (Module):
         d = self.dim
         return self.cat([x.flatten(d) for x in xs], dim=d)
 
+
+class Branch(Module):
+
+    def __init__(self, n):
+        super().__init__()
+        self.n = n
+    
+    def forward(self, x):
+        return self.n * [x]
+    
 
 class Cut (Module):
     """
@@ -350,3 +393,27 @@ class Stack(Module):
         d = self.dim
         return (torch.stack(xs, dim=d) if not self.flatten else
                 torch.stack([x.flatten(d) for x in xs], dim=d))
+
+
+class Mask(Module):
+
+    def __init__(self, *shapes, stdev=.01):
+        super().__init__()
+        mask  = 1 + stdev * torch.randn(shapes)
+        self.register_parameter('mask', nn.Parameter(mask))
+        self.shape = self.mask.shape
+
+    def forward(self, x):
+        return self.mask * x
+
+
+class Sum(Module):
+    """
+    Sum along a dimension.
+    """
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, x):
+        return x.sum(self.dim)
