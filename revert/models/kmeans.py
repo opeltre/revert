@@ -4,6 +4,7 @@ from torch.distributions.categorical import Categorical as prob
 import torch 
 import torch.nn as nn
 from torch.optim import Optimizer
+from torch.utils.data import DataLoader
 
 from .module import Module
 
@@ -50,7 +51,7 @@ class KMeans(Module):
         while m.shape[0] < self.k:
             d = torch.cdist(x, m)
             D = torch.sort(d, -1).values
-            p = prob(logits=(D[:,0] ** 2))
+            p = prob(probs=D[:,0] ** 2 / x.shape[-1])
             i = p.sample()
             m = torch.cat([m, x[i:i+1]])
         self.centers = nn.Parameter(m)
@@ -82,7 +83,7 @@ class KMeans(Module):
         """
         if not self.centers.shape[-1] == xs[0].shape[-1] or\
                self.centers.norm() == 0:
-            self.init(xs[0])
+            self.init(xs.dataset[0] if isinstance(xs, DataLoader) else xs[0])
         if not "optim" in kws and not "lr" in kws:
             dim = self.centers.shape[-1]
             optim = SimpleEuler(self.parameters(), lr=float(self.k * dim))
