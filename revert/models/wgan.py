@@ -61,13 +61,13 @@ class WGAN (Module):
             fit_critic = self.n_crit
         #--- maximize expectation difference E[f(x_true)] - E[f(x_gen)] over f
         if fit_critic:
-            self.critic.train(True)
+            self.critic.unfreeze()
             self.critic.fit(data, lr=lr, epochs=fit_critic, progress=False)
-            self.critic.train(False)
         #--- maximize expectation E[f(x_gen)] over x_gen
-        self.critic.train(False)
-        W = self.critic.wasserstein_on(*data[0])
-        return - self.critic(xs).mean() / W
+        self.critic.freeze()
+        with torch.no_grad():
+            W = self.critic.wasserstein_on(xs, ys).detach()
+        return - self.critic.loss_on(xs, ys) / W
 
     def forward(self, z):
         """
@@ -148,8 +148,9 @@ class WGANCritic (Module):
         Difference of expectations on true and generated data.
         """
         true, gen   = y, 1 - y
-        return ((fx * true).sum() / true.sum())\
-             - ((fx * gen).sum() / gen.sum())
+        W = ((fx * true).sum() / true.sum())\
+          - ((fx * gen).sum() / gen.sum())
+        return W / self.k if "k" in dir(self) else W
 
     def wasserstein_on(self, x, y):
         return self.wasserstein(self(x), y)
@@ -180,22 +181,45 @@ class Lipschitz (WGANCritic):
 
         Estimate the Lipschitz constant k(f) and add its square to the Wasserstein estimate:
 
-                beta * k(f)^2 + E[f(x_true)] - E[f(x_gen)]
+                (beta/2) * k(f)^2 + E[f(x_true)] - E[f(x_gen)]
 
-              = beta * k(f)^2 + E[f(x) * y]
+              = (beta/2) * k(f)^2 + E[f(x) * y]
 
         The minimum of this function at fixed beta computes the Legendre transform
         of k evaluated on the the linear form `(y * p_x) / beta`.
 
-        The differentials beta * (dk^2 / df) and (dW / df) then compensate so that f
-        is critical for W constrained to a sphere k(f) = cst.
+        If `f` is critical then `beta . k . dk = dW` so that `beta . k` is
+        a Lagrange multiplier for a Lipschitz sphere constraint `k(f) = cst`.
 
-        N.B: minimizing k(f)^2 can be viewed as a form of entropic constraint on f,
-        so that W + beta * k^2 is the free energy associated to the energy term W.
+        Evaluating on both differentials on `(1 + dt) * f`, we have by linearity
+        of `W = dW` and homogeneity of the semi-norm k:
+
+                beta . k(f)^2 . dt = W[f] . dt
+
+        By the Kantorovitch-Rubinstein duality, the Wasserstein distance
+        `DW(x_gen, x_true)` is then given by `W[f] / k(f)` for optimal f.
+        The Lipschitz radius and the Wasserstein distance therefore satisfy:
+
+                k(f) = DW(x_gen, x_true) / beta
+
+        Checking that the ratio `DW / k` is indeed close to `beta` is a good
+        way to check whether the critic had a chance to reach the optimal state.
+
+        Remarks:
+        --------
+        - Because both k(f) and W(f) are fixed by addition of constants, one can add
+        a constraint on the mean of f. Fixed to zero the sign of the critic can then be
+        meaningful as a prediction.
+
+        - Minimizing k(f)^2 can be viewed as a form of entropic constraint on f,
+        and W + (beta/2) * k^2 is a form of free energy associated to the
+        internal energy term W = E[f * y].
         """
         W = super().wasserstein(fx, y)
         k = self.lipschitz(fx, y, x)
-        return - W + self.beta * k ** 2
+        L = (self.beta / 2) * k ** 2
+        C = fx.mean().abs() ** 2
+        return - W + L + C
 
     def lipschitz(self, fx, y, x):
         """
@@ -232,12 +256,6 @@ class Lipschitz (WGANCritic):
         self.k = k.detach()
         return k
 
-    def wasserstein(self, fx, y):
-        return super().wasserstein(fx, y) / self.k
-
-    def wasserstein_on(self, x, y):
-        return super().wasserstein_on(x, y) / self.k
-
     def loss_on (self, x, y):
         fx = self(x)
         return self.loss(fx, y, x)
@@ -249,6 +267,7 @@ class Clipped (WGANCritic):
         super().__init__(critic)
         self.exclude = exclude
         self.clip_value = clip
+        self.k = self.clip_value
         #--- register clipped parameters
         self.clipped = []
         for name, p in self.model.named_parameters():
