@@ -26,19 +26,9 @@ class WGAN (Module):
         self.n_gen   = n_gen
         self.n_crit  = n_crit
         self.lr_crit = lr_crit
+        self.n_it = 0
 
-    def fit(self, dset, **kws):
-        """
-        Fit on a dataset of (z_gen, x_true) of seed-sample pairs.
-        """
-        N, n_gen, n_crit = len(dset), self.n_gen, self.n_crit
-        cfit = torch.zeros([N], dtype=torch.long)
-        idx = torch.arange(N // n_gen) * n_gen
-        cfit[idx] = n_crit
-        dset_c = [(*xs, c) for xs, c in zip(dset, cfit)]
-        super().fit(dset_c, **kws)
-
-    def loss(self, x_gen, x_true, fit_critic=True):
+    def loss(self, x_gen, x_true):
         """
         WGAN loss on returned samples x.
 
@@ -57,8 +47,8 @@ class WGAN (Module):
         data = [(xs.detach(), ys)]
         lr = self.lr_crit
         # critic optimization steps
-        if fit_critic == True:
-            fit_critic = self.n_crit
+        fit_critic = self.n_crit * (0 == self.n_it % self.n_gen)
+        self.n_it += 1
         #--- maximize expectation difference E[f(x_true)] - E[f(x_gen)] over f
         if fit_critic:
             self.critic.unfreeze()
@@ -67,7 +57,7 @@ class WGAN (Module):
         self.critic.freeze()
         with torch.no_grad():
             W = self.critic.wasserstein_on(xs, ys).detach()
-        return - self.critic.loss_on(xs, ys) / W
+        return - self.critic.loss_on(xs, ys)
 
     def forward(self, z):
         """
@@ -142,14 +132,34 @@ class WGANCritic (Module):
         super().__init__()
         self.model  = critic
 
+    def label(self, x_gen, x_true, device=None):
+        """
+        Return label vector y = [0, ..., 1, ... ].
 
-    def wasserstein(self, fx, y):
+        Provide (x_gen, x_true) as tensor or int (shape[0]).
+        """
+        if isinstance(x_gen, torch.Tensor):
+            device = x_gen.device
+        n_gen  = x_gen if isinstance(x_gen, int) else x_gen.shape[0]
+        n_true = x_true if isinstance(x_true, int) else x_true.shape[0]
+        true = torch.ones([n_true, 1])
+        gen  = torch.zeros([n_gen, 1])
+        return torch.cat([gen, true]).to(device)
+
+    def energy(self, fx, y):
         """
         Difference of expectations on true and generated data.
         """
         true, gen   = y, 1 - y
         W = ((fx * true).sum() / true.sum())\
           - ((fx * gen).sum() / gen.sum())
+        return W
+
+    def wasserstein(self, fx, y):
+        """
+        Difference of expectations on true and generated data.
+        """
+        W = self.energy(fx, y)
         return W / self.k if "k" in dir(self) else W
 
     def wasserstein_on(self, x, y):
@@ -167,13 +177,14 @@ class WGANCritic (Module):
 
 class Lipschitz (WGANCritic):
 
-    def __init__(self, critic, beta=1., temp_k=.5, n_pairs=128):
+    def __init__(self, critic, beta=1., temp_k=.1, n_pairs=256):
         super().__init__(critic)
         self.beta = beta
         self.k = 1
         self.n_pairs = n_pairs
         self.temp_k  = temp_k
-        self.extrema = None
+        self.extrema  = None
+        self.roll_idx = 0
 
     def loss(self, fx, y, x):
         """
@@ -215,13 +226,13 @@ class Lipschitz (WGANCritic):
         and W + (beta/2) * k^2 is a form of free energy associated to the
         internal energy term W = E[f * y].
         """
-        W = super().wasserstein(fx, y)
-        k = self.lipschitz(fx, y, x)
-        L = (self.beta / 2) * k ** 2
-        C = fx.mean().abs() ** 2
-        return - W + L + C
+        W = self.energy(fx, y)
+        k = self.lipschitz(fx, x)
+        beta = self.beta
+        mean = fx.mean().abs()
+        return (- W + mean + (beta / 2) * k ** 2)
 
-    def lipschitz(self, fx, y, x):
+    def lipschitz(self, fx, x):
         """
         Estimate the Lipschitz constant.
 
@@ -243,10 +254,12 @@ class Lipschitz (WGANCritic):
         i = k_in.argmax()
         x_max = self.extrema
         if k_in[i] >= self.k:
-           with torch.no_grad():
-               x_max[0, 0] = x[i]
-               x_max[0, 1] = x[s[i]]
-               self.extrema = x_max.roll(1, 0).detach()
+            j = self.roll_idx % self.n_pairs
+            with torch.no_grad():
+               x_max[j, 0] = x[i]
+               x_max[j, 1] = x[s[i]]
+               self.extrema = x_max.detach()
+               self.roll_idx += 1
         # Lipschitz ratio estimate
         y_max = self(x_max.view([2 * n, *ns])).view([n, 2])
         dx_max = (x_max[:,0] - x_max[:,1]).flatten(1).norm(2, [1])
