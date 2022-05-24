@@ -1,6 +1,7 @@
 import os
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import revert.plot as rp
 import revert.cli  as cli
@@ -11,28 +12,28 @@ from revert.models import WGAN, Lipschitz, Twins, ConvNet, Affine, Linear,\
 
 dz = 8              # seed dimension
 dx = 64             # pulse dimension
-ns = (10,   300)    # (n_gen, n_crit)   : respective number of iterations
-lr = (1e-3, 1e-3)   # (lr_gen, lr_crit) : respective learning rates 
-n_batch = 256
-beta = .5
+ns = (10,   500)    # (n_gen, n_crit)   : respective number of iterations
+lr = (1e-3, 1e-3)   # (lr_gen, lr_crit) : respective learning rates
+n_batch = 512
+beta = 2.5
 
 mask = False
 c = 1 if not mask else 2
 
-layers_G = [[8,  32, 16,  c],
-            [16, 32, 64, 64],
-            [4,  8, 2]]
+layers_G = [[8, 32,  c],
+            [8, 64, 64],
+            [4,  4]]
 
-layers_D = [[c,  32, 16, 1],
-            [64, 16, 1, 1],
-            [8,  16, 1]]
+layers_D = [[c,  32, 1],
+            [64, 8,  1],
+            [8,  8]]
 
 args = cli.parse_args(dirname   = 'wgan-pulses',
                       datatype  = 'infusion',
                       data      = 'baseline-no_shunt.pt',
-                      output    = f'WGAN-2x8:64 | ns:{ns} lr:{lr} beta:{beta}.pt',
+                      output    = f'WGAN-8:64 | ns:{ns} lr:{lr} beta:{beta}.pt',
                       input     = '../twins/VICReg-64:8:64-may12-1.pt',
-                      epochs    = 20,
+                      epochs    = 30,
                       n_batch   = n_batch,
                       beta      = beta,
                       device    = 'cuda:0',
@@ -45,7 +46,51 @@ class MaskMul(Module):
     """ Multiply first channel by masks."""
     def forward(self, x):
         x_mask = x.prod(1).unsqueeze(1)
-        return torch.cat([x_mask, x[:,1:]], dim=1)  
+        return torch.cat([x_mask, x[:,1:]], dim=1)
+
+
+class Softabs (Module):
+    def __init__(self, eps=.01, bias=True):
+        super().__init__()
+        self.eps = .01
+
+    def forward(self, x):
+        return torch.sqrt(x**2 + self.eps)
+
+class Simplex(Module):
+
+    def __init__(self, k, shape, temp=None, bias=False):
+        super().__init__()
+
+        # prototypes
+        c = torch.randn(k, *shape)
+        self.register_parameter('centers', nn.Parameter(c))
+
+        # bias: pi = prob(z > bi)
+        if bias:
+            b = 1e-2 * torch.randn(k)
+            self.register_parameter('bias', nn.Parameter(b))
+        else:
+            self.bias = 0
+
+        # temperature T : T -> 0 vertices, T -> inf barycenter)
+        if temp == None:
+            self.temp = 1e-1
+        else:
+            temp = torch.tensor(temp)
+            self.register_parameter('temp', nn.Parameter(temp))
+
+    @torch.no_grad()
+    def set(self, centers):
+        """ Assign prototypes. """
+        self.centers = nn.Parameter(centers)
+
+    def forward(self, z):
+        """ Sample prototypes. """
+        d = len(self.centers.shape[1:])
+        pc = torch.softmax(self.bias + z / self.temp, dim=1)
+        pc = pc[(slice(None), slice(None), *([None] * d))]
+        return (pc * self.centers[None,:]).sum(1)
 
 
 def generator(args):
@@ -53,30 +98,18 @@ def generator(args):
     c = 2 if args.mask else 1
 
     scale_out = Affine(c, c, dim=-2)
-    
-    mixt = Pipe(Mask(8),
-                SoftMin(0, True),
-                Linear(dz, dz * 64),
-                View([dz, 64]))
+
+    mixt = Simplex(dz, [8])
 
     conv = Pipe(Linear(dz, 64),
                 View([8, 8]),
                 ConvNet(args.layers_G),
                 scale_out)
-    
-    G = Pipe(Branch(2),
-             Prod(mixt, conv),
-             Cat(1),
-             Sum(1),
-             View([c, dx]))
-    
-    G.centers = mixt[2].weight
-    G.conv = conv
-    G.mixt = mixt
+
+    G = Pipe(mixt, conv)
     return G
 
-
-def critic(args): 
+def critic(args):
     c = 2 if args.mask else 1
     # vicreg encoder
     twins   = Twins.load(args.input).freeze()
@@ -84,10 +117,10 @@ def critic(args):
     # map input to non-saturating domain
     scale_in = Affine(1, 1, dim=-2)
     with torch.no_grad():
-        scale_in.bias = nn.Parameter(torch.tensor([0.01]))
+        scale_in.bias = nn.Parameter(torch.tensor([.1]))
         scale_in.weight = nn.Parameter(torch.tensor([[.2]]))
     """
-    D = Pipe(encoder.freeze(), 
+    D = Pipe(encoder.freeze(),
              ConvNet([[8, 16, 1],
                       [1,  1, 1],
                       [1, 1]]),
@@ -95,7 +128,7 @@ def critic(args):
     """
     D = Pipe(scale_in,
              View([c, 64]),
-             ConvNet(args.layers_D),
+             ConvNet(args.layers_D, activation=F.leaky_relu),
              View([1]),
              Linear(1, 1))
 
@@ -104,117 +137,169 @@ def critic(args):
     return D
 
 
-def main (args):
+def main (args, runfit=True):
 
+    # create gan
     G = generator(args)
     D = critic(args)
     gan = WGAN(G, D, ns=ns, lr_crit=lr[1])
-    print(f'\ngan:\n {gan}')
+    gan.to(args.device)
+
+    # load seed, pulse pairs
+    dset = dataset(args)
+
+    # writers + number of critic iterations
+    gan.N_crit = 0
+    gan.write_to(args.writer)
+    gan.critic.writer = gan.writer
+    gan.write_dict({
+        "gen": f"{gan.gen}",
+        "critic": f"{gan.critic}"
+    })
+
+    @gan.critic.episode
+    def log_critic(tag, data):
+        """
+        Wasserstein + Lipschitz estimates and optimality ratio.
+
+        The term W[f] / (beta . k(f)^2) should tend to 1 at critic optimality.
+        """
+        d = data['train']
+        if isinstance(d, torch.utils.data.DataLoader):
+            print(f"dataloader.dataset[0]: {d.dataset[0]}")
+            x, y = d.dataset[:args.n_batch]
+        else:
+            x, y = d[0]
+        with torch.no_grad():
+            fx = gan.critic(x)
+            W = gan.critic.wasserstein_on(x, y)
+            k = gan.critic.k
+            mult = gan.critic.model.modules[-1].weight.abs().detach()
+        gan.write("1. Wasserstein estimate", W, gan.N_crit)
+        gan.write("2. Critic/Lipschitz estimate", k, gan.N_crit)
+        gan.write("2. Critic/Optimality", W / (args.beta * k), gan.N_crit)
+        # saturation + collapse
+        gan.write("2. Critic/saturation", fx.abs().mean() / mult, gan.N_crit)
+        gan.write("2. Critic/deviation", fx.std([0]).mean() / mult, gan.N_crit)
+        gan.N_crit += 1
+
+    @gan.epoch
+    def log_gen(tag, data, epoch):
+        """
+        Generated pulses, masks and prototypes.
+        """
+        z = args.std_z * torch.randn(16, dz).to(args.device)
+        mixt, conv = gan.gen[0], gan.gen[1]
+        with torch.no_grad():
+            x_gen = gan(z)
+            x_ctr = conv(mixt.centers).detach().cpu()
+            gx = conv[:-1](mixt(z)).cpu()
+            fx = gan.critic(x_gen).cpu()
+            c = .5 - fx / fx.abs().max()
+            temp = mixt.temp
+            temp = temp.cpu() if isinstance(temp, torch.Tensor) else temp
+        # saturation + collapse
+        gan.write("3. Generator/saturation", gx.abs().mean(), epoch)
+        gan.write("3. Generator/deviation", gx.std([0]).mean(), epoch)
+        gan.write("3. Generator/mix temperature", temp, epoch)
+        # plot pulses
+        fig = rp.pulses(x_gen[:,0].cpu(), c=c)
+        gan.writer.add_figure(f"4. Generated pulses", fig, global_step=epoch)
+        # plot prototypes
+        fig = rp.pulses(x_ctr.view([-1, 64]))
+        gan.writer.add_figure("5. Generator prototypes", fig, global_step=epoch+1)
+        if args.mask:
+            fig2 = rp.pulses(x_gen[:,1].cpu(), c=c)
+            gan.writer.add_figure(f"6. Generated masks", fig2, global_step=epoch)
+
+    # fit
+    if runfit: fit(gan, dset, args.epochs)
+
+    # save
+    gan.critic.episode_callbacks = []
+    gan.save(args.output)
+
+    return gan
+
+
+def fit (gan, dset, epochs):
+    #fit_linear(gan, dset)
+    fit_critic(gan, dset)
+    print(f"\n------ Fitting WGAN on {dset[1].shape[0]} pulses ------\n")
+    gan.fit(dset, lr=lr[0], epochs=epochs, tag="critic score")
+
+
+def fit_critic(gan, dset, n=10):
+    """ Optimize critic on the initial generator distribution. """
+
+    # generate initial distribution
+    z_gen, x_true = dset
+    with torch.no_grad():
+        x_gen  = gan(z_gen)
+    x = torch.cat([x_gen, x_true])
+    y = gan.critic.label(x_gen, x_true)
+
+    # estimate Lipschitz constant
+    with torch.no_grad():
+        fx = gan.critic(x)
+        gan.critic.lipschitz(fx, x)
+
+    # fit on initial distribution
+    print(f"\n------ Initialize critic for {n} epochs ------\n")
+    y = gan.critic.label(x_gen, x_true)
+    gan.critic.fit((x, y), lr=1e-3, epochs=n, tag="critic initialization")
+
+    with torch.no_grad(): W = gan.critic.wasserstein_on(x, y)
+    print(f'\tWasserstein estimate : {W:.3f}')
+    print(f'\tLipschitz estimate   : {gan.critic.k:.3f}')
+
+
+def fit_linear(gan, dset):
+    """ Initialize generator prototypes with K-Means. """
+
+    x_true = dset[1]
+    km = KMeans(dz, dx).to(x_true.device)
+
+    # fit kmeans
+    print(f"\n------ Initialize prototypes with K-Means ------\n")
+    print(x_true.shape)
+    km.init(x_true[:1024,0])
+    km.fit((x_true[:,0],), epochs=30, n_batch=1024, tag="Prototypes initialization (KMeans)")
+
+    # assign prototypes
+    with torch.no_grad():
+        gan.gen.centers = nn.Parameter(km.centers.t())
+
+    # plot prototypes
+    fig = rp.pulses(km.centers.detach().cpu())
+    gan.writer.add_figure("5. Generator prototypes", fig, global_step=0)
+
+
+def dataset (args):
+    """ Return seed, pulse pairs (z_gen, x_true). """
 
     # serialized pulses and masks
     data  = torch.load(args.data)
 
-    # true pulses
+    # true pulses and segmentation masks
     pulses = (nn.AvgPool1d(2)(data['pulses'])
                 .view([-1, 64]))
     masks = (nn.AvgPool1d(2)(data['masks'])
                 .view([-1, 64]))
 
-    nb = args.n_batch     
-    N  = (pulses.shape[0] // nb) * nb
+    x_true = (torch.stack([pulses, masks], dim=1).view([-1, 2, 64])
+                if args.mask else pulses.view([-1, 1, 64]))
+
+    N = x_true.shape[0]
     idx = torch.randperm(N)
+    x_true = x_true[idx].to(args.device)
 
-    if args.mask:
-        x_true = (torch.stack([pulses[:N], masks[:N]], dim=1) 
-                    [idx]
-                    .reshape([-1, nb, 2, 64])
-                    .to(args.device))
-        x_true -= x_true.mean()
-        x_true /= x_true.std()
-
-    else:
-        x_true = (pulses[:N][idx]
-                    .reshape([-1, nb, 1, 64])
-                    .to(args.device))
-        x_true[:,0] -= x_true[:,0].mean()
-        x_true[:,0] /= x_true[:,0].std()
+    # normalize
+    x_true[:,0] -= x_true[:,0].mean()
+    x_true[:,0] /= x_true[:,0].std()
 
     # seeds
-    z_gen = torch.randn(N // nb, nb, dz).to(args.device)
+    z_gen = torch.randn(N, dz).to(args.device)
     z_gen *= args.std_z
 
-    dset = [(zi, xi) for zi, xi in zip(z_gen, x_true)]
-    
-    gan.to(args.device)
-    gan.write_to(args.writer)
-
-    def fit_critic(n=2):
-        print(f"\n------ Initialize critic on {n} epochs ------\n")
-        gan.critic.writer = gan.writer
-        with torch.no_grad():
-            x_gen  = gan(z_gen.view([-1, dz]))
-        x = torch.cat([x_gen, x_true.view(x_gen.shape)])
-        y = (torch.tensor([0., 1.]).repeat_interleave(N)
-                                    .view([2 * N, 1])
-                                    .to(args.device))
-        with torch.no_grad():
-            fx = gan.critic(x)
-            gan.critic.lipschitz(fx, y, x)
-        gan.critic.fit((x, y), lr=1e-3, epochs=n, tag="critic initialization")
-        with torch.no_grad():
-            W = gan.critic.wasserstein_on(x, y)
-        print(f'\tWasserstein estimate : {W:.3f}')
-        print(f'\tLipschitz estimate   : {gan.critic.k:.3f}')
-    
-    def fit_linear(samples=10 * nb):
-        km = KMeans(dz).to(args.device)
-        print(f"\n------ Fitting WGAN on {N} pulses ------\n")
-        km.fit((x,), n_batch=1024, tag="Prototypes initialization (KMeans)")
-        with torch.no_grad():
-            gan.gen.centers = nn.Parameter(km.centers.T.detach())
-    
-    def fit (n=args.epochs):
-        print(f"\n------ Fitting WGAN on {N} pulses ------\n")
-        gan.fit(dset, lr=lr[0], epochs=n, tag="critic score")
-        gan.critic.episode_callbacks = []
-        gan.save(args.output)
-    
-    # number of critic iterations
-    gan.N_crit = 0
-
-    @gan.critic.episode
-    def log_critic(tag, data):
-        d = data['train']
-        x, y = d.dataset[0] if isinstance(d, torch.utils.data.DataLoader) else d[0]
-        with torch.no_grad():
-            fx = gan.critic(x)
-            W = gan.critic.wasserstein_on(x, y)
-            mult = gan.critic.model.modules[-1].weight.abs().detach()
-        gan.write("1. Wasserstein estimate", W, gan.N_crit)
-        gan.write("2. Critic/Lipschitz estimate", gan.critic.k, gan.N_crit)
-        # saturation + collapse
-        gan.write("2. Critic/saturation", fx.abs().mean() / mult, gan.N_crit)
-        gan.write("2. Critic/deviation", fx.std([0]).mean() / mult, gan.N_crit)
-        gan.N_crit += 1
-    
-    @gan.epoch
-    def log_gen(tag, data, epoch):
-        z = args.std_z * torch.randn(16, dz).to(args.device)
-        with torch.no_grad():
-            x_gen = gan(z)
-            gx = gan.gen.conv(z).cpu()
-            fx = gan.critic(x_gen).cpu()
-            c = nn.functional.softmin(fx, 0)
-        # saturation + collapse
-        gan.write("3. Generator/saturation", gx.abs().mean(), epoch)
-        gan.write("3. Generator/deviation", gx.std([0]).mean(), epoch)
-        # plot pulses
-        fig = rp.pulses(x_gen[:,0].cpu(), c=c)
-        gan.writer.add_figure(f"4. Generated pulses", fig, global_step=epoch)
-        if args.mask:
-            fig2 = rp.pulses(x_gen[:,1].cpu(), c=c)
-            gan.writer.add_figure(f"5. Generated masks", fig2, global_step=epoch)
-    
-    fit_critic()
-    fit_linear(10)
-    fit()
+    return (z_gen, x_true)
