@@ -6,11 +6,11 @@ import sys
 from revert.models import WGAN, WGANCritic, Clipped,\
                           ConvNet, View, Affine
 
-ns = (10, 500)  # (n_gen, n_crit)
+ns = (5, 100)  # (n_gen, n_crit)
 lr_gen, lr_crit = (5e-3, 5e-3)
 clip = .5
-N, Nb = 200, 256
-epochs = 10
+N, Nb = 512, 256
+epochs = 5
 tag = "critic score"
 
 dx, dz = 6, 3
@@ -51,7 +51,8 @@ class TestWGAN(test.TestCase):
     def test_wgan_losses(self):
         gan = WGAN(G, D)
         #--- critic loss:    E[c(x_true)] - E[c(x_gen)]
-        c_loss = gan.critic.loss_on(xs, ys)
+        with torch.no_grad():
+            c_loss = gan.critic.loss_on(xs, ys)
         #--- generator loss: E[c(x_true)] - E[gen(z)]
         w_loss = gan.loss_on(z, x_true)
         self.assertTrue(c_loss.dim() == 0)
@@ -59,22 +60,22 @@ class TestWGAN(test.TestCase):
 
     @test.skipFit("WGAN", "6d-embedding of a 3d-gaussian")
     def test_wgan_fit(self, writer):
-        gan = WGAN(G, D, ns, lr_gen, clip=clip)
+        gan = WGAN(G, D, ns, lr_gen)
         gan.writer = writer
+        gan.to('cuda')
         #--- input 3d-seeds
-        z = torch.randn([N, Nb, 3])
+        z = torch.randn([N, Nb, 3]).to('cuda')
         #--- observed 3d-distribution
         x = .3 + (.8 * torch.randn([N * Nb, 6]))
         P = torch.tensor([[1, 0, 0, 0, 0, 0],
                           [0, 1, 0, 0, 0, 0],
                           [0, 0, 1, 0, 0, 0]]).float()
         proj = P.T @ P
-        x_true = (proj @ x.T).T.view([N, Nb, 6])
+        x_true = (proj @ x.T).T.view([N, Nb, 6]).to('cuda')
         #--- backprop 
         dset =  [(zi, xi) for zi, xi in zip(z, x_true)]
         print(f"\n\tn_gen: {gan.n_gen} \tlr_gen: {lr_gen}")
         print(f"\tn_crit: {gan.n_crit} \tlr_crit: {gan.lr_crit}")
-        print(f"\tclip: {gan.critic.clip_value}\n")
         gan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag=tag)
         #--- generate
         with torch.no_grad():
@@ -86,7 +87,8 @@ class TestWGAN(test.TestCase):
         result = x_true.mean()
         self.assertClose(expect, result, tol=.1)
         #--- test subspace (proj @ x = x)
-        x_gen = x_gen.view([-1, 6])
+        x_gen = x_gen.view([-1, 6]).to('cpu')
         expect = proj @ x_gen.T
         result = x_gen.T
         self.assertClose(expect, result, tol=.1)
+        gan.to('cpu')

@@ -56,9 +56,11 @@ class TestModule(test.TestCase):
         self.assertEqual(expect, result)
 
     def test_prod(self):
-        prod = Prod(View([2, 3, 4]), View([3, 3, 4]), ns=[2, 3], dim=1)
+        prod = Prod(View([2, 3, 4]), View([3, 3, 4]))
+        cut = Cut([2, 3], dim=1)
+        cat = Cat(dim=1)
         x = torch.randn(128, 5, 12)
-        y = prod(x)
+        y = cat(prod(cut(x)))
         result = tuple(y.shape)
         expect = (128, 5, 3, 4)
         self.assertEqual(expect, result)
