@@ -51,7 +51,7 @@ class TestWGANMixture (test.TestCase):
         idx = torch.randperm(z_gen.shape[0])
         # fit
         dset = (z_gen[idx], x_true[idx])
-        gan.fit(dset, lr=lr[0], epochs=epochs, n_batch=256, tag="critic score")
+        gan.fit(dset, lr=lr[0], epochs=epochs, n_batch=256, tag="critic score", mod=5)
         # prototypes
         c_gen = gan.gen(gan.centers)
         res = tuple(c_gen.shape)
