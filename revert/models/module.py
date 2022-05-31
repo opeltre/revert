@@ -72,7 +72,7 @@ class Module (nn.Module):
         #--- loop over epochs
         for e in (range(epochs) if not progress else 
                   tqdm(range(epochs), position=0, desc='epoch', colour="green")):
-            l = 0
+            l = 0.
             #--- loop over batches
             for nit, x in enumerate(dset):
                 #--- backprop
@@ -82,9 +82,9 @@ class Module (nn.Module):
                 #--- write callback
                 if tag: 
                     l += loss.detach()
-                if tag and nit % mod == 0 and nit > 0:
+                if tag and nit % mod == mod - 1:
                     self.write(f"Loss/{tag}", l / mod, nit + e * N_it)
-                    l = 0
+                    l = 0.
                 #--- backprop
                 loss.backward()
                 optim.step()
@@ -106,9 +106,9 @@ class Module (nn.Module):
     
     def iter(self, callback):
         """ 
-        Run callback("tag", data, epoch) after each epoch. 
+        Run callback("tag", data, nit) after each batch iteration. 
 
-        The data argument will be a dict with 'train' and 'val' values.
+        The data argument will be the current batch.
         """
         self.iter_callbacks.append(torch.no_grad()(callback))
 
