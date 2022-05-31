@@ -1,4 +1,5 @@
 [fit]
-KMeans  = true
-#WGAN    = true
-#CWGAN   = true
+KMeans   = true
+#WGAN     = true
+#CWGAN    = true
+WGAN-mix = true

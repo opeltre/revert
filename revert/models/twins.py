@@ -103,6 +103,7 @@ class VICReg (Twins):
 
     def loss_v(self, y, eps=1e-6):
         """ Variance regularisation loss. """
+        y = y.flatten(2)
         dim = y.shape[-1]
         var = y.var(dim=0)
         dev = torch.sqrt(var + eps).flatten()
@@ -116,6 +117,7 @@ class VICReg (Twins):
 
     def loss_c(self, y):
         """ Covariance criterion, preventing redundancies. """
+        y = y.flatten(2)
         dim  = y.shape[-1]
         corr = self.xcorr(y)
         mask = 1 - torch.eye(y.shape[-1], device=y.device)

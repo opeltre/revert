@@ -6,10 +6,9 @@ from revert.models import WGAN, Affine, ConvNet, View
 
 ns = (10, 500)
 lr_gen, lr_crit = (1e-2, 5e-3)
-clip = .3
 
-N, Nb = 100, 512 
-epochs = 20
+N, Nb = 512, 512 
+epochs = 5
 tag = "critic score"
 
 class TestCWGAN(test.TestCase):
@@ -33,7 +32,7 @@ class TestCWGAN(test.TestCase):
         E = lambda x: x[:,1:]
         G = Affine(1, 2)
         D = View([1]) @ ConvNet([[3, 12, 1], [1, 1, 1], [1, 1]]) @ View([3, 1])
-        cgan = WGAN.conditional(G, D, E, ns, lr_crit, clip=clip)
+        cgan = WGAN.conditional(G, D, E, ns, lr_crit)
         cgan.writer = writer
         #--- 2d-gaussian with (.3, .3) mean and (.05, .1) stdev
         mean = torch.tensor([.3, .3], device="cuda")
@@ -46,7 +45,6 @@ class TestCWGAN(test.TestCase):
         cgan.cuda()
         print(f"\n\tn_gen = {cgan.n_gen} \tlr_gen = {lr_gen}")
         print(f"\tn_crit = {cgan.n_crit} \tlr_crit = {cgan.lr_crit}\n")
-        print(f"\tclip: {clip}\n")
         cgan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag=tag)
         #--- generate
         z = z.view([-1, 1])

@@ -3,6 +3,18 @@ import datetime
 import os
 import toml
 
+def args(**defaults):
+    def decorator(main):
+        def with_args():
+            arg = read_args(arg_parser(), **defaults)
+            if "models" in dir(arg):
+                for arg_i in arg.models:
+                    main(arg_i)
+            else:
+                return main(arg)
+        return with_args
+    return decorator
+
 def arg_parser():
     """
     Return an ArgumentParser object with input, output and data arguments.
@@ -37,9 +49,9 @@ def arg_parser():
         Path to a .toml config file that contains different architectures and hyperparameters (default=None).
         If 'path' relative and the '$REVERT_MODELS' environment variable
         is defined, the config file will be looked inside this folder.
-        Using default architecture and hyperparameters otherwise. 
+        Using default architecture and hyperparameters otherwise.
         """)
-    
+
     return parser
 
 
@@ -55,25 +67,25 @@ def join_envdir (envname, path):
     return os.path.join(try_envdir(envname), path)
 
 def generate_filename(dirname, prefix='module', config=None, use_date=True):
-    """ 
+    """
     Generate a filename index from module prefix and date string.
     """
 
     # time info
-    if use_date: 
+    if use_date:
         date = datetime.datetime.now()
         day_num = str(date.day)
         month_num = str(date.month)
         datetime_object = datetime.datetime.strptime(month_num, "%m")
         month_name = datetime_object.strftime("%b").lower()
         daykey = f"{month_name[:3]}{day_num}"
-    # prefix 
+    # prefix
     basename = f"{prefix}-{daykey}" if use_date else prefix
     # config
     if config:
         files_list = []
-        if 'models' in config: 
-            for key, model in config['models'].items():
+        if 'model' in config:
+            for key, model in config['model'].items():
                 for name, val in model.items():
                     name = basename.replace(f'{name}', str(val))
                 name = basename.replace('{model}', key)
@@ -89,13 +101,12 @@ def generate_filename(dirname, prefix='module', config=None, use_date=True):
             num += 1
         return os.path.join(dirname, f"{basename}-{num}.pt")
 
-
-def read_args(parser, name='module', datatype=None, **defaults):
+def read_args(args, name='module', datatype=None, **defaults):
     """
     Return argument namespace after some processing.
     """
-
-    args = parser.parse_args()
+    if isinstance(args, argparse.ArgumentParser):
+        args = args.parse_args()
     models_dir = try_envdir('REVERT_MODELS')
     logs_dir   = try_envdir('REVERT_LOGS')
     configs_dir = try_envdir('REVERT_CONFIGS')
@@ -116,26 +127,28 @@ def read_args(parser, name='module', datatype=None, **defaults):
                                  else os.path.join(configs_dir, args.config))
         print(f"> using {args.config} as config file")
         args.config = toml.load(args.config)
-    
+
     #--- map read_args over config['model']
     if args.config and "model" in args.config:
-        basename = (args.config["basename"] if "basename" in args.config 
+        basename = (args.config["basename"] if "basename" in args.config
                     else name)
+        cdefaults = (args.config["defaults"] if "defaults" in args.config
+                    else {})
         args.models = []
         # loop over architectures
         for key, model in args.config['model'].items():
+            arg = argparse.Namespace(**model)
             N = max(len(val) for val in model.values())
             m, name = {}, basename
             # loop over parameters
             for i in range(N):
                 name = name.replace('{model}', key)
-                for p, val_p in model.items(): 
-                    m[p] = val_p[i % len(val_p)]
+                for p, val_p in model.items():
+                    setattr(arg, p, val_p[i % len(val_p)])
                     name = name.replace('{' + p + '}', str(m[p]))
-                m['name'] = name
-                m['output'] = os.path.join(models_dir, f'{name}.pt')
-                m['writer'] = os.path.join(logs_dir, f'{name}')
-        args.models.append(m)
+                arg.name = name
+                arg.output = os.path.join(models_dir, f'{name}.pt')
+                args.models.append(read_args(arg, **defaults, **cdefaults))
         return args
 
     #--- Input

@@ -1,10 +1,11 @@
+import os
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
-
-import os
-from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
-from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import TensorDataset, DataLoader
 
 class Module (nn.Module):
     """
@@ -44,13 +45,17 @@ class Module (nn.Module):
             raise RuntimeError("'model.loss' is not defined")
         return self.loss(self.forward(x), *ys, **ks)
 
-    def fit (self, xs, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
+    def fit (self, dset, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
         """ 
         Fit on a N_it x 2 x N_batch x N tensor.
 
-        The iterable 'xs' should yield either tensor / tuple of tensor batches,
+        The iterable 'dset' should yield either tensor / tuple of tensor batches,
         see torch.utils.data.TensorDataset for instance.
         """
+        if isinstance(dset, tuple):
+            xs = TensorDataset(*dset)
+            nb = kws["n_batch"] if "n_batch" in kws else 256
+            dset = DataLoader(xs, shuffle=True, batch_size=nb)
         #--- number of steps between calls to writer
         mod = kws["mod"] if "mod" in kws else 10
         #--- hide progress bar
@@ -63,13 +68,13 @@ class Module (nn.Module):
             scheduler = None
         else:
             scheduler = None
-        N_it = len(xs)
+        N_it = len(dset)
         #--- loop over epochs
         for e in (range(epochs) if not progress else 
                   tqdm(range(epochs), position=0, desc='epoch', colour="green")):
-            l, ntot = 0, len(xs)
+            l = 0
             #--- loop over batches
-            for nit, x in enumerate(xs):
+            for nit, x in enumerate(dset):
                 #--- backprop
                 optim.zero_grad()
                 loss = (self.loss_on(x) if isinstance(x, torch.Tensor)
@@ -89,7 +94,7 @@ class Module (nn.Module):
             if scheduler:
                 scheduler.step()
             #--- epoch callback
-            data = {'train': xs, 'val': val}
+            data = {'train': dset, 'val': val}
             for cb in self.epoch_callbacks: cb(tag, data, e)
         #--- episode callback
         for cb in self.episode_callbacks:   cb(tag, data)
@@ -147,6 +152,23 @@ class Module (nn.Module):
             for key, value in data.items():
                 writer.add_text(key , str(value))
 
+    def write_to(self, path=None):
+        """ Initialize tensorboard writer. """
+        if isinstance(path, str):
+            self.writer = SummaryWriter(path)
+
+    def freeze (self): 
+        """ Freeze parameters. """
+        for p in self.parameters():
+            p.requires_grad = False
+        return self
+
+    def unfreeze (self):
+        """ Unfreeze parameters. """
+        for p in self.parameters():
+            p.requires_grad = True
+        return self
+
     def __matmul__ (self, other):
         """ Composition of modules. """
         if isinstance(other, Pipe) and isinstance(self, Pipe):
@@ -155,12 +177,20 @@ class Module (nn.Module):
             return Pipe(other, *self.modules)
         if isinstance(other, Pipe):
             return Pipe(*other.modules, self)
-        return Pipe(other, self)
- 
-    def write_to(self, path=None):
-        if isinstance(path, str):
-            self.writer = SummaryWriter(path)
+        return Pipe(other, self) 
 
+    def __or__(self, other):
+        """ 
+        Cartesian product (parallel application).
+        """
+        if isinstance(other, Prod) and isinstance(self, Prod):
+            return Prod(*other.modules, *self.modules)
+        if isinstance(self, Prod):
+            return Prod(other, *self.modules)
+        if isinstance(other, Prod):
+            return Prod(*other.modules, self)
+        return Prod(other, self) 
+        
     @classmethod
     def load (cls, path, env="REVERT_MODELS"):
         """
@@ -213,7 +243,7 @@ class Pipe (Module):
         self.modules = modules
 
         for i, mi in enumerate(self.modules):
-            setattr(self, f'module{i}', mi)
+             setattr(self, f'module{i}', mi)
 
     def forward (self, x):
         xs = [x]
@@ -226,3 +256,164 @@ class Pipe (Module):
 
     def loss(self, y, *ys):
         return self.modules[-1].loss(y, *ys)
+    
+    def index_of(self, g):
+        """ Index of module g in the pipe. """
+        i = None
+        for j, gj in enumerate(self.modules):
+            if gj == g: 
+                i = j
+        if isinstance(i, int): 
+            return i
+        raise RuntimeError(f"Could not find module {g} in pipe.")
+        
+    def until(self, g, strict=True):
+        """ Return pipe section until module g. """
+        if isinstance(g, int):
+            i = g
+        elif isinstance(g, Module):
+            i = self.index_of(g)
+        x = 0 if strict else 1
+        return Pipe(*self.modules[:i+x])
+    
+    def since(self, g, strict=False):
+        """ Pipe section from module g. """
+        if isinstance(g, int):
+            i = g
+        elif isinstance(g, Module):
+            i = self.index_of(g)
+        x = 1 if strict else 0
+        return Pipe(*self.modules[i+x:])
+
+    def __getitem__(self, slc):
+        """ Pipe sections. """
+        if isinstance(slc, int):
+            return self.modules[slc]
+        if isinstance(slc, slice):
+            i0, i1 = slc.start, slc.stop
+            if isinstance(i0, Module):
+                i0 = self.index_of(i0)
+            if isinstance(i1, Module):
+                i1 = self.index_of(i1)
+        return Pipe(*self.modules[i0:i1])
+
+        
+class Prod (Module):
+    """ 
+    Cartesian product of modules (parallel application).
+    """
+
+    def __init__(self, *modules):
+        super().__init__()
+        self.modules = modules
+        for i in range(len(modules)):
+            setattr(self, f'module{i}', modules[i])
+    
+    def forward(self, x):
+        return [mi(xi) for mi, xi in zip(self.modules, x)]
+        
+
+class Skip (Module):
+    """ 
+    Apply a module to the (input, output) pair of an other module.class Cat (Module).
+    """
+    
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, xs):
+        d = self.dim
+        return self.cat([x.flatten(d) for x in xs], dim=d)
+
+
+class Branch(Module):
+
+    def __init__(self, n):
+        super().__init__()
+        self.n = n
+    
+    def forward(self, x):
+        return self.n * [x]
+    
+
+class Cut (Module):
+    """
+    Cut input into specified shapes. 
+    """
+    def __init__(self, ns=None, dim=1, shapes=None):
+        super().__init__()
+        self.dim = dim
+        if ns:
+            self.sizes  = ns
+            self.shapes = None
+        elif shapes:
+            prod = lambda n, *ns: (n * prod(ns) if ns else 1)
+            self.sizes  = sum(prod(ni for ni in s) for s in shapes)
+            self.shapes = shapes
+    
+    def forward(self, x):
+        xs, begin = [], 0
+        shapes = self.shapes
+        slc = [slice(None)] * self.dim
+        for k, Nk in enumerate(self.sizes):
+            xk = x[slc + [slice(begin,begin + Nk)]]
+            xs.append(xk.reshape(shapes[k]) if shapes else xk)
+            begin += Nk
+        return xs
+
+
+class Cat(Module):
+    """ 
+    Concatenate inputs along specified dim.
+    """
+
+    def __init__(self, dim=1, flatten=False):
+        super().__init__()
+        self.dim = dim
+        self.flatten = flatten
+
+    def forward(self, xs):
+        d = self.dim
+        return (torch.cat(xs, dim=d) if not self.flatten else
+                torch.cat([x.flatten(d) for x in xs], dim=d))
+
+
+class Stack(Module):
+    """ 
+    Stack inputs along specified dim.
+    """
+
+    def __init__(self, dim=1, flatten=False):
+        super().__init__()
+        self.dim = dim
+        self.flatten = flatten
+
+    def forward(self, xs):
+        d = self.dim
+        return (torch.stack(xs, dim=d) if not self.flatten else
+                torch.stack([x.flatten(d) for x in xs], dim=d))
+
+
+class Mask(Module):
+
+    def __init__(self, *shapes, stdev=.01):
+        super().__init__()
+        mask  = 1 + stdev * torch.randn(shapes)
+        self.register_parameter('mask', nn.Parameter(mask))
+        self.shape = self.mask.shape
+
+    def forward(self, x):
+        return self.mask * x
+
+
+class Sum(Module):
+    """
+    Sum along a dimension.
+    """
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, x):
+        return x.sum(self.dim)

@@ -8,7 +8,7 @@ dim  = 2
 n_it = 3000
 eps  = 1e-6
 
-def makeClusters(stdev=0.1, n=100):
+def makeClusters(stdev=0.05, n=100):
     """ Generate n points close to each corner of a square. """
     means = torch.tensor([[0, 0], [0, 1], [1, 0], [1, 1]])
     noise = stdev * torch.randn([n, 4, 2])
@@ -22,8 +22,9 @@ class TestKMeans (test.TestCase):
         km = KMeans(n_clusters, dim)
         km.writer = writer
         corners, x = makeClusters()
-        km.fit([x] * 10, epochs=600, tag="kmeans", mod=5)
-        print(f'\n\t=> centers:\n{km.centers.cpu().detach()}')
+        km.fit([x] * 10, epochs=300, tag="kmeans", mod=5)
+        centers = km.centers.cpu().detach()
+        print(f'\n\t=> centers:\n{centers}'.replace('\n', '\n\t'))
         y = km.predict(x).float().view([-1, n_clusters, dim])
         # Expect prediction to be constant across clusters 
         result = y - y.mean([0])
