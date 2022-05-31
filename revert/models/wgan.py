@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import re
 
 from .module import Module
@@ -14,7 +15,7 @@ class WGAN (Module):
         """ Conditional WGAN instance. """
         return ConditionalWGAN(G, D, E, *args, **kargs)
 
-    def __init__(self, generator, critic, ns=(10, 1000), lr_crit=5e-3):
+    def __init__(self, generator, critic, ns=(1, 100), lr_crit=5e-3, mix=False):
         """
         Initialize WGAN from generator G and critic D.
         """
@@ -27,18 +28,28 @@ class WGAN (Module):
         self.n_crit  = n_crit
         self.lr_crit = lr_crit
         self.n_it = 0
+        if isinstance(mix, tuple):
+            n, dz = mix
+            self.n_centers = n
+            p = torch.ones([n]) / n
+            mu = torch.randn(n, dz)
+            sigma = torch.eye(dz).unsqueeze(0).repeat(n, 1, 1)
+            self.register_parameter("prob", nn.Parameter(p))
+            self.register_parameter("centers", nn.Parameter(mu))
+            self.register_parameter("devs", nn.Parameter(sigma))
+            self.iter_callbacks.append(self.normalise)
 
-    def loss(self, x_gen, x_true):
+    def loss(self, x_gen, x_true, k_gen=None):
         """
         WGAN loss on returned samples x.
 
-        The Wasserstein distance is estimated by optimising a
-        k-Lipschitz critic on the following classification reward:
+        The Wasserstein distance is estimated by optimizing a k-Lipschitz critic f:
 
-            W(x_gen, x_true) = max_f { E[f(x_true)] - E[f(x_gen)] }
+            W(x_gen, x_true) = max_f  E[f(x_true)] - E[f(x_gen)]
 
-        The critic should therefore enforce weight clipping to respect
-        the Lipschitz constraint.
+        If p_gen is given, then the expectation of f(x_gen) will be weighted by p_gen.
+        The Wasserstein distance is then computed w.r.t. an underlying mixture
+        model on the seed, while remaining differentiable w.r.t. p_gen.
         """
         device = x_true.device
         xs = torch.cat([x_gen, x_true])
@@ -55,27 +66,70 @@ class WGAN (Module):
             self.critic.fit(data, lr=lr, epochs=fit_critic, progress=False)
         #--- maximize expectation E[f(x_gen)] over x_gen
         self.critic.freeze()
-        with torch.no_grad():
-            W = self.critic.wasserstein_on(xs, ys).detach()
         return - self.critic.loss_on(xs, ys)
+
+    def loss_on(self, z_gen, x_true):
+        if not "n_centers" in dir(self):
+            return self.loss(self(z_gen), x_true)
+        k_gen = z_gen[:,-1]
+        return self.loss(self(z_gen), x_true, k_gen)
+
+    def label(self, x_gen, x_true, k_gen=None):
+        gen  = torch.ones(x_gen.shape[:2])
+        true = torch.ones(x_true.shape[:2])
+        # no mixture
+        if isinstance(k_gen, type(None)):
+            return torch.cat([-gen / gen.sum(),true / true.sum()], dim=1)
+        # mixture
+        part = self.prob.cumsum() - self.prob[0]
+        with torch.no_grad():
+            idx = torch.bucketize(k_gen, part)
+        p_gen = self.prob[idx] * self.n_centers / gen.sum()
+        return torch.cat([-gen * p_gen, true / true.sum()], dim=1)
+
+    def seed(self, N, dz=None):
+        """
+        Normalized gaussian, joined with [0, 1] uniform sampling for mixtures.
+        """
+        dz = dz if dz else self.dz
+        if "n_centers" in dir(self):
+            z = torch.randn(N, dz)
+            k = torch.rand(N, 1)
+            return torch.cat([z, k], dim=1)
+        return torch.randn(N, dz)
+
+    def mix(self, s):
+        """
+        Gaussian mixture on the seed.
+        """
+        if not "prob" in dir(self):
+            return s
+        z = s[:,:-1]
+        k = s[:,-1].contiguous()
+        with torch.no_grad():
+            part = self.prob.cumsum(0)
+            idx  = torch.bucketize(k, part)
+        mu = self.centers[idx]
+        sigma = self.devs[idx]
+        z_mix = mu + torch.einsum('bjk,bk->bj', sigma, z)
+        return z_mix
 
     def forward(self, z):
         """
         Generate samples from seeds.
         """
-        return self.gen(z)
-
-    def parameters(self):
+        if not "n_centers" in dir(self):
+            return self.gen(z)
+        return self.gen(self.mix(z))
+    
+    @torch.no_grad()
+    def normalise(self, *args):
         """
-        Yield generator parameters.
+        Normalise mixture probabilities.
         """
-        return self.gen.parameters()
-
-    def named_parameters(self):
-        """
-        Yield generator parameters.
-        """
-        return self.gen.named_parameters()
+        if "prob" in dir(self):
+            self.prob /= self.prob.sum()
+        return self
 
 
 class ConditionalWGAN(WGAN):
@@ -103,8 +157,9 @@ class ConditionalWGAN(WGAN):
         """
         Return the pair (z, G(z)) as a concatenated vector.
         """
-        x_gen = self.gen(z)
-        return torch.cat([z.flatten(1), x_gen.flatten(1)], dim=1)
+        z_gen = self.mix(z)
+        x_gen = self.gen(z_gen)
+        return torch.cat([z_gen.flatten(1), x_gen.flatten(1)], dim=1)
 
 
 class WGANCritic (Module):
