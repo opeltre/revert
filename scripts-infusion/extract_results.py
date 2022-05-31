@@ -2,8 +2,7 @@
 import json
 import csv
 
-import setup
-from infusion import Dataset
+from revert.infusion import Dataset
 from sys import argv
 
 # Input dataset $1
