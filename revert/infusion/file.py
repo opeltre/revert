@@ -210,6 +210,13 @@ class File (h5py.File):
             return self.db.results[self.key][field]
         else:
             return self.results()[field]
+    
+    def pss(self):
+        field = "Pss [mmHg]"
+        if self.db and len(self.db.results):
+            return self.db.results[self.key][field]
+        else:
+            return self.results()[field]
 
     def analysis (self):
         return self.xml('aux/ICM+/icmtests')\
