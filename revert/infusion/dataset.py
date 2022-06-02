@@ -5,15 +5,15 @@ import json
 from .file import File
 
 PREFIX = (os.environ["INFUSION_DATASETS"]
-            if "INFUSION_DATASETS" in os.environ 
+            if "INFUSION_DATASETS" in os.environ
             else os.getcwd())
 
 class Dataset:
-    
+
     def __init__(self, path='2016'):
-        """ Provide a path to the dataset. """ 
+        """ Provide a path to the dataset. """
         self.name = os.path.basename(path)
-        self.path = (path if path[0] == "/" 
+        self.path = (path if path[0] == "/"
                         else os.path.join(PREFIX, path))
         #--- Events data ---
         periods = os.path.join(
@@ -22,10 +22,23 @@ class Dataset:
         try:
             with open(periods) as data:
                 self.periods = json.load(data)
-        except: 
+        except:
             self.periods = {}
-            print(f"> no events metadata found: {periods}")   
-            
+            print(f"No events metadata found: {periods}\n"
+                + f"Run scripts-infusion/extract_timestamps.py")
+
+        #--- Results ---
+        results = os.path.join(
+                os.path.dirname(self.path),
+                f"results-{self.name}.json")
+        try:
+            with open(results) as data:
+                self.results = json.load(data)
+        except:
+            self.results = {}
+            print(f"No events metadata found: {results}\n"
+                + f"Run scripts-infusion/extract_results.py")
+
     def __iter__(self):
         for f in self.ls():
             file = self.get(f)
@@ -37,8 +50,8 @@ class Dataset:
         return os.listdir(self.path)
         p = path if path[0] == "/" \
                  else os.path.join(os.path.dirname(__file__), path)
-    
-    #--- File opening --- 
+
+    #--- File opening ---
 
     def file (self, path):
         """ Get file with exact name. """
@@ -63,14 +76,14 @@ class Dataset:
             f = self.file(name)
             try:
                 out += [reader(f)]
-            except: 
+            except:
                 pass
             f.close()
         return out
 
     def filter (self, test):
         """ Filter exam filenames that do not raise exceptions. """
-        def key (file): 
+        def key (file):
             test(file)
             return file.key
         return self.filters(key)

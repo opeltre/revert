@@ -14,8 +14,6 @@ db = Dataset(dbname)
 dest   = (argv[2] if len(argv) > 2 
         else db.path.replace(dbname, f"results-{dbname}.json"))
 
-print(argv)
-
 # Dict of infusion results read from 'aux/ICM+/icmtests'
 results = db.map(lambda f: f.results())
 
