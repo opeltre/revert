@@ -7,11 +7,11 @@ import math
 from datetime import datetime, timezone
 import os
 
-def unixTimeICM (string): 
+def unixTimeICM (string):
     """ Fix timezone inconsistencies of ICM+ in datetime strings.
-    
+
         ICM+ saves timestamps assuming computer is in UTC although
-        it might not be. Force tzinfo to UTC. 
+        it might not be. Force tzinfo to UTC.
     """
     fmt = "%d/%m/%Y %H:%M:%S"
     dt = (datetime.strptime(string, fmt)
@@ -19,14 +19,14 @@ def unixTimeICM (string):
     return dt.timestamp()
 
 
-class File (h5py.File): 
+class File (h5py.File):
 
     def __init__(self, path, db=None):
-        """ 
-        Create a file instance from exact path.  
+        """
+        Create a file instance from exact path.
 
-        N.B: more easily done with `db.get(pattern)`  
-        """ 
+        N.B: more easily done with `db.get(pattern)`
+        """
         if   os.path.sep == '/' : reg_exp = r'^.*/(.*)\.hdf5'
         elif os.path.sep == '\\': reg_exp = r'^.*\\(.*)\.hdf5'  # '^.*\\\\(.*)\\.hdf5'
         else: raise Exception("Path seperator must be '/' or '\\'")
@@ -35,25 +35,25 @@ class File (h5py.File):
         self.db  = db
         super().__init__(path, 'r')
 
-    #--- ICP signal --- 
+    #--- ICP signal ---
 
     def icp (self, N1=None, N2=None, **kwargs):
-        """ 
-        Return a slice of ICP signal from O to N1 or N1 to N1 + N2. 
+        """
+        Return a slice of ICP signal from O to N1 or N1 to N1 + N2.
 
         Usage :
         -------
             f.icp()
                 Load full ICP signal
 
-            f.icp(N1)    
+            f.icp(N1)
                 Load N pts of ICP signal from start
-            
+
             f.icp(N0, N1)
                 Load N1 pts of ICP signal from point N0.
 
             f.icp(N1, infusion=-N0)
-                Load N1 pts of ICP signal from infusion start + (-N0). 
+                Load N1 pts of ICP signal from infusion start + (-N0).
         """
         if N1 == None:
             data = self['waves']['icp']
@@ -84,7 +84,7 @@ class File (h5py.File):
         """ Parse age from patient information. """
         return int(re.match(r'\d*', self.info()["age"]).group(0))
 
-    #--- Events --- 
+    #--- Events ---
 
     def nblocks (self):
         """ Return number of blocks in ICP signal. """
@@ -98,15 +98,15 @@ class File (h5py.File):
         """ Return start of block UNIX time (ms). """
         return self.index(i)['starttime']
 
-    def nevents (self): 
+    def nevents (self):
         """ Return number of events in annotations. """
         return len(self.get("annotations/events"))
 
-    def events (self): 
+    def events (self):
         """ Return information of event i. """
         return self.table("annotations/events")
 
-    #--- Datatypes --- 
+    #--- Datatypes ---
 
     def bytestring (self, key):
         """ Extract bytestring at file.get(key). """
@@ -116,7 +116,7 @@ class File (h5py.File):
         """ Return XML instance from bytestring at file.get(key). """
         return xml.fromstring(self.bytestring(key))
 
-    def table (self, key): 
+    def table (self, key):
         """ Extract dict from table row i at file.get(key). """
         obj = self.get(key)
         name = obj.dtype.names
@@ -128,7 +128,7 @@ class File (h5py.File):
         return unixTimeICM(t)
 
     #--- Timestamps ---
-    
+
     def infusion_start(self, src='icmtests'):
         """
         Return start of infusion in seconds from start of recording.
@@ -136,11 +136,11 @@ class File (h5py.File):
         Look for file.key in file.db.periods when it exists.
         Otherwise try to parse chosen XML source.
 
-        Arguments:  
+        Arguments:
         ----------
-            - src : 'icmtests' | 'icmevents' | 'annotations' 
+            - src : 'icmtests' | 'icmevents' | 'annotations'
         """
-        #--- Look for json metadata --- 
+        #--- Look for json metadata ---
         db = self.db
         if db and self.key in db.periods:
             periods = db.periods[self.key]
@@ -157,10 +157,10 @@ class File (h5py.File):
         elif src == "icmevents":
             tree = self.xml("aux/ICM+/icmevents")
             evts = tree.find("Events").findall("Event")
-        else: 
+        else:
             tree = self.analysis()
             evts = tree.find("Selections").findall("Selection")
-    
+
         #--- Fix timezone incoherence ---
         def tzone (t):
             begin = self.start()
@@ -178,14 +178,14 @@ class File (h5py.File):
             ts  = [attr["StartTime"], attr["EndTime"]]
             return [unixTimeICM(t) for t in ts] \
                    if fmt == "unix" else ts
-    
+
         #--- Event name ---
         def key(evt):
             return (evt['eventname'].decode('utf8') if src == 'annotations'\
                    else evt.attrib['Name'])
 
         return {key(e): timestamp(e) for e in evts}
-        
+
     def interval(self, key, src="icmtests", fmt="unix"):
         ts = self.intervals(src, fmt=fmt)
         ks = [k for k in ts if re.search(key, k)]
@@ -204,6 +204,13 @@ class File (h5py.File):
 
     #--- Regression Parameters ---
 
+    def elastance (self):
+        field = "Elastance [1/ml]"
+        if self.db and len(self.db.results):
+            return self.db.results[self.key][field]
+        else:
+            return self.results()[field]
+
     def analysis (self):
         return self.xml('aux/ICM+/icmtests')\
                 .find("AnalysisInstances")  \
@@ -217,7 +224,7 @@ class File (h5py.File):
     def values (self, *patterns):
         if not(len(patterns)):
             patterns = ['']
-        res, out = self.results(), {} 
+        res, out = self.results(), {}
         for p in patterns:
             out[p] = {k: rk for k, rk in res.items() \
                                       if re.match(p,k)}
@@ -226,17 +233,17 @@ class File (h5py.File):
     def value (self, pattern):
         return self.values(pattern)[pattern]
 
-    #--- Show --- 
+    #--- Show ---
 
-    def __repr__(self): 
-        def gstr(group): 
+    def __repr__(self):
+        def gstr(group):
             s = ''
             for k in group.keys():
-                if isinstance(group[k], h5py.Dataset): 
+                if isinstance(group[k], h5py.Dataset):
                     s += f'\n{k}: {group[k].shape}'
                 else:
                     sk = gstr(group[k]).replace('\n', '\n. ')
                     s += f'\n{k}: {sk}'
-            return s 
+            return s
         return '<Hdf5>' + gstr(self).replace('\n', '\n  ')
-    
+
