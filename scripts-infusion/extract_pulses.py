@@ -103,7 +103,7 @@ def main (model_state=None, Npulses=64, minutes=6):
     print(f"  - {len(bad['y_quant'])} bad Y-quantizations encountered")
     print(f"  - {len(bad['amp'])} low amplitudes encountered")
     print(f"  - {len(bad['errors'])} errors encountered")
-    print(bad['errors'])
+    return data
 
 #--- Pulse selection
 
