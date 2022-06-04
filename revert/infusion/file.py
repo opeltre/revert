@@ -6,8 +6,6 @@ import xml.etree.ElementTree as xml
 import math
 from datetime import datetime, timezone
 import os
-from .icm_hdf5_reader_module import SignalClass
-
 
 def unixTimeICM (string): 
     """ Fix timezone inconsistencies of ICM+ in datetime strings.
@@ -35,16 +33,9 @@ class File (h5py.File):
         match = re.match(reg_exp, path)
         self.key = match.group(1) if match else "none"
         self.db  = db
-        self._icp_data_stream = None  # lazy evaluation. It will loaded once icp() or fs() method is called.
         super().__init__(path, 'r')
 
     #--- ICP signal --- 
-
-    def load_icp(self):
-        self._icp_data_stream = SignalClass(self, 'icp').get_data_stream()
-
-    def is_icp_loaded(self):
-        return self._icp_data_stream is not None
 
     def icp (self, N1=None, N2=None, **kwargs):
         """ 
@@ -64,29 +55,23 @@ class File (h5py.File):
             f.icp(N1, infusion=-N0)
                 Load N1 pts of ICP signal from infusion start + (-N0). 
         """
-        if not self.is_icp_loaded():
-            self.load_icp()
-        data = self._icp_data_stream.values
-        if N1 is None:
+        if N1 == None:
+            data = self['waves']['icp']
             return torch.tensor(np.array(data))
+            return torch.tensor(self['waves']['icp'])
         if "infusion" in kwargs:
             N2 = N1
             N1 = int(self.infusion_start() * self.fs())\
                + int(kwargs["infusion"])
-        elif N2 is None:
+        elif N2 == None:
             N1, N2 = 0, N1
-        data_slice = data[N1:N1+N2]  # This could be optimized if there are performance issues.
-        # It should be possible to use arguments of SignalClass.get_data_stream(),
-        # but they operate on time units instead of sample numbers.
-        return torch.tensor(np.array(data_slice))
+        data = self['waves']['icp'][N1:N1+N2]
+        return torch.tensor(np.array(data))
 
     def fs (self):
         """ Return sampling frequency. """
-        # return self.index()['frequency']  # may not work well if there are multiple ICP blocks with different sampling frequencies
-        if not self.is_icp_loaded():
-            self.load_icp()
-        return self._icp_data_stream.sampling_frq
-
+        return self.index()['frequency']
+    
     #--- Patient Information --- 
 
     def info (self):
