@@ -1,16 +1,21 @@
 tags=("Baseline" "Plateau" "Infusion")
 
-if [ -d $INFUSION_DATASETS/no_shunt ]; then
-    echo "no_shunt dataset directory exists"
-else
-    python scripts-infusion/filter_noshunt.py
-fi
+function filterShunt () {
+    if [ -d $INFUSION_DATASETS/no_shunt ]; then
+        echo "no_shunt dataset directory exists"
+    else
+        python scripts-infusion/filter_noshunt.py
+    fi
+}
 
 function extractPulses () {
-    python scripts-infusion/extract_timestamps.py $1
+    dirname=${1:-no_shunt}
+    python scripts-infusion/extract_timestamps.py $dirname
+    python scripts-infusion/extract_results.py $dirname
     for tag in ${tags[*]}; do
-       python scripts-infusion/extract_pulses.py $1 $tag 
+       python scripts-infusion/extract_pulses.py $dirname $tag 
     done
 }
 
+filterShunt
 extractPulses $1

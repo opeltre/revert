@@ -7,16 +7,18 @@ import revert.plot as rp
 from revert.models import KMeans, Module, Pipe, View, cross_correlation
 from revert        import cli
 
+dy = 16 
+
 parser = cli.arg_parser()
 parser.add_argument('--k', '-k', type=int, metavar='number of clusters')
 parser.add_argument('--col', '-C', type=int, metavar='grid columns')
 
-defaults = dict(input='../twins/VICReg-64:8:64-may12-1.pt',
+defaults = dict(input='../twins/VICReg-64:16:64-jun3-1.pt',
                 output='KMeans:{k} @ {input}', 
                 datatype='infusion', 
                 data='baseline-no_shunt.pt',
-                k=16,
-                col=4,
+                k=64,
+                col=8,
                 dirname='kmeans')
 
 def setArgs(args):
@@ -34,7 +36,7 @@ km.writer = SummaryWriter(args.writer)
 
 #--- load model state
 twins = Module.load(args.input)
-model = Pipe(*twins.model.modules[:2], View([8]))
+model = Pipe(*twins.model.modules[:2], View([dy]))
 model.cuda()
 
 #--- load pulses
@@ -52,7 +54,7 @@ def cluster_grid(tag, data):
 
 @km.episode
 def cluster_xcorr(tag, data):
-    ys = model(x).view([len(d['pulses']), -1, 8])
+    ys = model(x).view([len(d['pulses']), -1, 16])
     p = torch.stack([km.counts(yi) / yi.shape[0] for yi in ys]).cpu()
     print(p.shape)
     C = cross_correlation(p, p)

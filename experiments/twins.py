@@ -10,8 +10,8 @@ from torch import nn
 from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 
-dx  = 128
-dy  = 8
+dx  = 64
+dy  = 16
 dz  = 64
 TwinType = VICReg
 TwinArgs = [(1, 1, .1)]
@@ -25,7 +25,7 @@ args = cli.parse_args(name=f'{TwinType.__name__}-{dx}:{dy}:{dz}',
 
 downsample = nn.AvgPool1d(128 // dx)
 
-model_layers = [[1, 64, dy],
+model_layers = [[1, 32, dy],
                [dx, 8, 1],
                [8,  8]]
 
