@@ -72,6 +72,12 @@ They include segmentation algorithms, spectral and spatial filters, and other di
 Model architectures from [revert/models](revert/models) are also tested for a good part, with optional `.fit(dset, ...)` attempts skipped by default, 
 using the `@test.skipFit(name)` decorator. If the `$REVERT_TEST_FIT` environment variable is set to `"true"`, then the test module will look in `test/config.toml` for which tests to run. 
 
+## Training scripts 
+
+See [experiments/README.md](experiments/README.md) for more details on the learning scripts.
+
+The [revert/cli](revert/cli) module provides with a few helpers to avoid boilerplate code, so that training scripts can focus on model and dataset definition. 
+
 ## Using notebooks (outdated)
 
 __N.B.__ Notebooks have been deleted to avoid polluting the source repository. We considered creating a `revert-notebooks` repository instead if notebooks become useful again, e.g. as examples or experiment notebooks. 
@@ -85,15 +91,9 @@ python -m ipykernel install --user --name revert
 ```
 Otherwise you can also add paths to the repository with `sys.path.insert`. 
 
-## Training scripts 
-
-Training models is done by the [experiments/](experiments) scripts. 
-
-The [revert/cli](revert/cli) module provides with a few helpers to avoid boilerplate code, so that training scripts can focus on model and dataset definition. See [experiments/README.md](experiments/README.md) for more details. 
-
 --- 
 
-outdated: move the rest to revert/infusion/README.md or revert/pcmri/README.md
+> Move the rest to revert/infusion/README.md or revert/pcmri/README.md
 
 ---
 
