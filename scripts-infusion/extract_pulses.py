@@ -28,6 +28,7 @@ if "INFUSION_DATASETS" in os.environ and not os.path.isabs(dest):
 db = infusion.Dataset(dbname)
 
 def main (model_state=None, Npulses=64, minutes=6):
+    print(f"--- Extracting '{label}' pulses")
 
     # model variation losses
     print(f"loading model from '{model_state}'" if model_state else "model = Id")
