@@ -85,6 +85,19 @@ python -m ipykernel install --user --name revert
 ```
 Otherwise you can also add paths to the repository with `sys.path.insert`. 
 
+## Training scripts 
+
+Training models is done by the [experiments/](experiments) scripts. 
+
+The [revert/cli](revert/cli) module provides with a few helpers to avoid boilerplate code, so that training scripts can focus on model and dataset definition. See [experiments/README.md](experiments/README.md) for more details. 
+
+--- 
+
+outdated: move the rest to revert/infusion/README.md or revert/pcmri/README.md
+
+---
+
+
 # Data Loaders 
 
 ## Infusion tests
