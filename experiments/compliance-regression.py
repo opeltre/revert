@@ -13,16 +13,19 @@ layers_head = [[dy, 1],
                [1 , 1],
                [1]]
 
-@cli.args(dirname   = "compliance",
-          datatype  = "infusion",
-          data      = "baseline-no_shunt.pt",
-          dbname    = "no_shunt",
-          input     = "VICReg-64:16:64-jun3-1.pt",
-          output    = "conv-64:1-jun3-6.pt",
-          device    = "cuda:0",
-          Cmax      = 5,
-          layers_head = layers_head)
+defaults = dict(dirname   = "compliance",
+                datatype  = "infusion",
+                data      = "baseline-no_shunt.pt",
+                dbname    = "no_shunt",
+                means     = True,
+                input     = "VICReg-64:16:64-jun3-1.pt",
+                output    = "conv-64:1-jun3-6.pt",
+                device    = "cuda:0",
+                Cmax      = 5,
+                layers_head = layers_head)
 
+
+@cli.args(**defaults)
 def main(args):
     # load datasets of pulse, compliance pairs 
     dset, val = getData(args, Cmax=args.Cmax)
@@ -45,9 +48,9 @@ def getModel(args):
     twins   = Module.load(args.input)
     encoder = twins.model[:2]
     # projection head
-    head = Pipe(Conv([[dy, 8, 1],
-                      [1,  1, 1],
-                      [1,  1]]),
+    head = Pipe(ConvNet([[dy, 8, 1],
+                         [1,  1, 1],
+                         [1,  1]]),
                 View([1]),
                 Affine(1, 1))
     # full model 
@@ -82,6 +85,9 @@ def getData(args, Cmax=10):
 
     x and y have shapes (N, 128) and (N, 1) respectively, 
     where N = Npatients * 64. 
+
+    If `args.means == True` then pulses will be prepended by their mean value 
+    so that x will be of shape (N, 129) instead. 
     """
     # load segmented pulses
     data = torch.load(args.data)
@@ -108,13 +114,15 @@ def getData(args, Cmax=10):
     bad = C.isinf() + C.isnan() + (C < 0) + (C > Cmax)
     nz2 = (~ bad).nonzero().flatten()
     x, y = pulses[nz2].to(args.device), C[nz2].to(args.device)
+    if args.means: 
+        xm = data['means'][nz][nz2].to(args.device)
+        x = torch.cat([xm.unsqueeze(2), x], dim=2)
     # repeat compliance along patient dimension
     y = y.repeat_interleave(x.shape[1]).view([*x.shape[:2], 1])
     # split dataset and shuffle pulses (flatten patient dimensions)
     dset = x[:896].flatten(0, 1), y[:896].flatten(0, 1)
     val  = x[896:].flatten(0, 1), y[896:].flatten(0, 1)
     # shuffle pulses (flatten patient dimension)
-    print(dset[0].shape)
     return dset, val
 
 def histogram(x, buckets):
