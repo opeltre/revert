@@ -297,9 +297,15 @@ class Pipe (Module):
                 i1 = self.index_of(i1)
         return Pipe(*self.modules[i0:i1])
 
-        
+
+class Id (Module):
+
+    def forward(self, x):
+        return x
+
+
 class Prod (Module):
-    """ 
+    """
     Cartesian product of modules (parallel application).
     """
 
@@ -308,7 +314,7 @@ class Prod (Module):
         self.modules = modules
         for i in range(len(modules)):
             setattr(self, f'module{i}', modules[i])
-    
+
     def forward(self, x):
         return [mi(xi) for mi, xi in zip(self.modules, x)]
         
