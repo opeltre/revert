@@ -4,7 +4,9 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
 from revert import infusion, cli
-from revert.models import ConvNet, Module, Pipe, Affine, View
+from revert.models import ConvNet, Module, Pipe, View,\
+                          Affine, Linear, Saxpy,\
+                          Cut, Cat, Id, Prod
 
 dx = 64
 dy = 16
@@ -19,7 +21,7 @@ defaults = dict(dirname   = "compliance",
                 dbname    = "no_shunt",
                 means     = True,
                 input     = "VICReg-64:16:64-jun3-1.pt",
-                output    = "conv-64:1-jun3-6.pt",
+                output    = "mean+shape-64:1-jun16-2.pt",
                 device    = "cuda:0",
                 Cmax      = 5,
                 layers_head = layers_head)
@@ -31,7 +33,9 @@ def main(args):
     dset, val = getData(args, Cmax=args.Cmax)
     # pipe pretrained network with projection head
     model   = getModel(args)
-    encoder = model[:2]
+    encoder = model.slices['encoder']
+    # initialize output bias:
+    model.slices['scale_out'].set(torch.ones(1, 1), dset[1].mean().unsqueeze(0))
     # freeze backbone during first episode
     encoder.freeze()
     model.loss = F.mse_loss
@@ -42,19 +46,48 @@ def main(args):
     model.save(args.output)
 
 def getModel(args):
-    """ Return pretrained twin network's backbone. """
+    """
+    Pipe pretrained twin with prediction head.
+
+    If `args.means == True` the prediction head will be fed
+    mean ICP values concatenated with pulse shape representations
+    coming out of the twin backbone.
+    """
 
     # load pretrained twin networks
-    twins   = Module.load(args.input)
-    encoder = twins.model[:2]
-    # projection head
-    head = Pipe(ConvNet([[dy, 8, 1],
-                         [1,  1, 1],
-                         [1,  1]]),
-                View([1]),
-                Affine(1, 1))
+    twins = Module.load(args.input)
+    scale_out = Affine(1, 1)
+
+    # pulse shape only
+    if not args.means:
+        # pulse shape encoder
+        encoder = twins.model[:2]
+        # projection head
+        head = Pipe(ConvNet([[dy, 8, 1],
+                             [1,  1, 1],
+                             [1,  1]]),
+                    View([1]),
+                    scale_out)
+    # catenate pulse mean with pulse shape representation
+    if args.means: 
+        # pulse shape encoder with pulse mean in parallel
+        E = View([dy]) @ twins.model[:2]
+        encoder = Pipe(
+                Cut([1, 128]),
+                Prod(Id(), E),
+                Cat(1))
+        # projection head
+        head = Pipe(Affine(1 + dy, 8),
+                    torch.tanh,
+                    Saxpy([8]),
+                    Linear(8, 1),
+                    torch.tanh,
+                    scale_out)
+
     # full model 
     model = head @ encoder
+    model.slices = {'encoder'   : encoder, 
+                    'scale_out' : scale_out}
     
     @model.epoch
     def log_epoch(tag, data, epoch):
