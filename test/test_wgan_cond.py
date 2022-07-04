@@ -41,11 +41,10 @@ class TestCWGAN(test.TestCase):
         #--- 1d-gaussian codes with .3 mean and .1 stdev
         z = mean[1] + (torch.randn([N, Nb, 1], device="cuda") * devs[1])
         #--- fit on dataset of (code, sample) pairs
-        dset = [(zi, xi) for zi, xi in zip(z, x_true)]
         cgan.cuda()
         print(f"\n\tn_gen = {cgan.n_gen} \tlr_gen = {lr_gen}")
         print(f"\tn_crit = {cgan.n_crit} \tlr_crit = {cgan.lr_crit}\n")
-        cgan.fit(dset, lr=lr_gen, epochs=epochs, progress=True, tag=tag)
+        cgan.fit((z, x_true), lr=lr_gen, epochs=epochs, progress=True, tag=tag)
         #--- generate
         z = z.view([-1, 1])
         with torch.no_grad():
