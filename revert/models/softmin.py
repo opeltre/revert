@@ -25,4 +25,6 @@ class SoftMin (Module):
         Nc = y.shape[-1]
         Npts = py.shape[-1]
         Dy = torch.arange(Npts).repeat(Nc).view([Nc, Npts])
-        return (py * (Dy - y[:, :, None]).abs()).sum()
+        length = (Dy - y[:,None]).abs()
+        dist   = torch.min(length, Npts - length)
+        return (py * dist).sum()
