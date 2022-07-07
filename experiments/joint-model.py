@@ -25,6 +25,11 @@ def model_head (args):
     d = args.dim_icp + args.dim_flows
     return rm.Affine(d, d)
 
+def dataset(args):
+    return None
+    # x1: flows, x2: N x pulses, ys: ?
+    return x1, x2, *ys
+
 def main(args):
     # load both pretrained models and initialize head
     m1, m2 = model_infusion(args), model_pcmri(args)
