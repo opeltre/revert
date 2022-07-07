@@ -10,7 +10,7 @@ from revert.models import WGAN, Lipschitz, Twins, ConvNet, Affine, Linear,\
                           View, Pipe, Module, KMeans,\
                           Sum, Mask, SoftMin, Branch, Prod, Cat, Cut
 
-dz = 8              # seed dimension
+dz = 16             # seed dimension
 dx = 64             # pulse dimension
 ns = (5, 300)       # (n_gen, n_crit)   : respective number of iterations
 lr = (3e-4, 3e-4)   # (lr_gen, lr_crit) : respective learning rates
@@ -24,7 +24,7 @@ layers_G = [[16, 64, c],
             [8,  64, 64],
             [4,  4,  4]]
 
-layers_D = [[c,  64, 8],
+layers_D = [[c,  64, dz],
             [64, 16, 1],
             [8,  8,  16]]
 
@@ -32,7 +32,7 @@ defaults = dict(dirname   = 'cwgan-pulses',
                 datatype  = 'infusion',
                 data      = 'baseline-no_shunt.pt',
                 output    = f'CWGAN-{dz}:64 | ns:{ns} lr:{lr} beta:{beta}.pt',
-                input     = '../twins/VICReg-64:8:64-may12-1.pt',
+                input     = '../twins/VICReg-64:16:64-jun3-1.pt',
                 epochs    = 30,
                 n_batch   = n_batch,
                 beta      = beta,
@@ -68,13 +68,14 @@ def encoder(args):
     )
     """
     twins   = Twins.load(args.input).freeze()
-    encoder = twins.model[1]
+    encoder = View([dz]) @ twins.model[1]
+    encoder.to(args.device)
     return encoder
 
 def critic(args):
     c = 2 if args.mask else 1
     # cut codes from pulses
-    cut = Cut([8, c * 64], 1)
+    cut = Cut([dz, c * 64], 1)
 
     # map input to non-saturating domain
     scale_in = Affine(1, 1, dim=-2)
@@ -85,13 +86,13 @@ def critic(args):
     Dx = Pipe(scale_in,
               View([c, 64]),
               ConvNet(args.layers_D),
-              View([8]),
+              View([dz]),
               Linear(1, 1))
     
     D = Pipe(cut,
-             Prod(View([8]), Dx),
+             Prod(View([dz]), Dx),
              Cat(1),
-             Affine(16, 1))
+             Affine(2 * dz , 1))
 
     D = Lipschitz(D, args.beta)
     return D
@@ -122,7 +123,8 @@ def dataset (args, encoder):
 
     # empiric codes + noise
     dz_gen = .05 * torch.randn(N, dz).to(args.device)
-    z_gen = encoder(x_true) + dz_gen 
+    z_true = encoder(x_true)
+    z_gen  = z_true + dz_gen 
 
     return (z_gen, x_true)
 
