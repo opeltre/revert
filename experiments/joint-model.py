@@ -37,3 +37,8 @@ def main(args):
     joint  = rm.Pipe(rm.Prod(m1, m2),
                      rm.Cat(1),
                      head)
+    
+def eval_model(joint_model, select_pulses): 
+    return lambda x1, X2: joint_model(x1, select_pulses(X2))
+  
+
