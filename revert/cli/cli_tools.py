@@ -94,6 +94,29 @@ def generate_filename(dirname, prefix='module', config=None, use_date=True):
                     num += 1
                 files_list.append(os.path.join(dirname, f"{basename}-{num}.pt"))
             return files_list
+        else :
+            files_list = []
+            for key in config:
+                params = config[key]['hparams']
+                if isinstance(params['n_batch'], list) and isinstance(params['lr'], list):
+                    if len(params['n_batch']) != len(params['lr']):
+                        raise Exception(f"n_batch and lr lists from config file for {key} are not compatible in sizes")
+                elif isinstance(params['n_batch'], list):
+                    params['lr'] = [params['lr']] * len(params["n_batch"])
+                elif isinstance(params['lr'], list):
+                    params['n_batch'] = [params['n_batch']] * len(params["lr"])
+                else:
+                    params['n_batch'] = [params['n_batch']]
+                    params['lr'] = [params['lr']]
+                for n, lr in zip(params["n_batch"], params["lr"]):
+                    fullname = f"{basename}-{key}-{n}-{lr}"
+                    num = 1
+                    params['n_batch'] = params['n_batch'][0]
+                    params['lr'] = params['lr'][0]
+                    while os.path.exists(os.path.join(dirname, f"{fullname}-{num}.pt")):
+                        num += 1
+                    files_list.append(os.path.join(dirname, f"{fullname}-{num}.pt"))
+            return files_list
     else:
         # next slot from prefix
         num = 1
@@ -167,7 +190,6 @@ def read_args(args, name='module', datatype=None, **defaults):
             args.output = os.path.extsep.join((args.output, "pt"))
         args.output = (args.output if os.path.isabs(args.output)
                                  else os.path.join(models_dir, args.output))
-
     else:
         args.output = generate_filename(models_dir, name, args.config)
     print(f"> save final {name} state as {args.output}")
