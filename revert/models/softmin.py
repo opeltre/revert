@@ -21,6 +21,12 @@ class SoftMin (Module):
     def loss (self, py, y):
         """
         Wasserstein loss with respect to Dirac measures
+
+        Inputs :  
+            - py : the prediction of the model
+            - y : the label to be predicted
+        Output :
+            - The result of the Wasserstein loss
         """
         Nc = y.shape[-1]
         Npts = py.shape[-1]
