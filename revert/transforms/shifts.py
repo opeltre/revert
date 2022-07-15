@@ -1,3 +1,5 @@
+import random
+import numpy as np
 import torch
 
 def unshift(x, y):
@@ -97,13 +99,56 @@ def shift_one(x, y=None):
     elif x.dim() == 3:
         x_list = []
         y_list = []
-        for xi in x:
-            x_prime, y_prime = shift_one(xi, y)
+        for i, xi in enumerate(x):
+            if y != None :
+                x_prime, y_prime = shift_one(xi, y[i])
+            else :
+                x_prime, y_prime = shift_one(xi, y)
             x_list.append(x_prime)
             y_list.append(y_prime)
         return torch.stack(x_list), torch.stack(y_list)
     else:
         raise TypeError("x must be of shape (N, Nc, Npts) or (Nc, Npts)")
-        
+
+def shift_discret(x, ind=1):
+    """
+    Shift one channels by a 33 shifts possible 
+
+        Inputs :
+            - x : list of channels
+            - ind : the index of the channel to shift
+        Output :
+            - x_prime : the same list of channels (the one with the defined index shifted)
+            - y : label of shift type applied
+    """
+
+    y = np.linspace(-32,32, 33, dtype=np.int)
+    if (ind > len(x)) :
+        raise ValueError("Index out of range")
+    dim = len(x.shape)
+    if dim == 2 :
+        x.unsqueeze_(0)
+            
+    N = len(x)
+    
+    # generate the labels
+    y_lab = torch.tensor([random.choice(y) for _ in range(N)])
+    labels = (y_lab + 32 ) / 2
+    labels = labels.long()
+
+    # generate the shift to be applied
+    y_0 = torch.tensor([0]*N)
+    a = [y_0]*ind
+    a.append(y_lab)
+    t = tuple(a)
+    y = torch.stack(t, dim=-1)
+
+    x_prime, _ = shift_one(x, y)
+    if dim == 2 : 
+        return x_prime.squeeze(0), labels
+    return x_prime, labels
+    
+    
+       
 def mod(x, m) :
     return torch.sign(x) * ((torch.sign(x)*x) % m)
