@@ -3,6 +3,27 @@
 <img alt="Reversible dementia" height="150px"
     src="img/revert-logo.png"> 
 
+# Blood and Cerebrospinal Fluid Dynamics
+
+Intracranial pressure (ICP) shows a pulsatile dynamic due
+to cardiac excitations, inducing periodic brain expansions 
+inside an inextensible cranial bone. Cerebrospinal fluid (CSF), 
+bathing the brain and spine, is periodically flushed in and out
+to the softer spinal sac through the occipital 
+foramen and cervical vertebras 
+to accomodate for blood volume changes. 
+
+Normal pressure hydrocephalus (NPH) is a CSF formation and absorption 
+disorder that causes gait and other cognitive impairments in the 
+elderly population. Believed to be largely misdiagnosed as Alzheimer, 
+NPH is a _reversible dementia_ as symptoms can sometimes
+quickly disappear by shunt drainage. Improving practice in NPH diagnosis 
+and gaining finer characterisations of CSF disorders is the goal of the 
+revert project. 
+
+<img alt="brain PCMRI and infusion exams" height="300px"
+    src="img/infusionPCMRI.png"> 
+
 # REVERT
 
 This repository contains code for analysing flux and pressure recordings of
@@ -54,7 +75,7 @@ To segment pulses, you can use `extract_pulses.py` scripts in `scripts_infusion`
 cd scripts-infusion
 python extract_timestamps.py full
 ```
-to generate this file. If you have your own dataset with infusion recordings of your patients in hdf5 files stored in a directory `/.../infusion_datasets/mypatients`, just replace `full` by `mypatients` in the previous line and in futur occurences of `full`. The output will contain a list of labels that looks like this :
+to generate this file. If you have your own dataset with infusion recordings of your patients in hdf5 files stored in a directory `/.../infusion_datasets/mypatients`, just replace `full` by `mypatients` in the previous line and in futur occurences of `full`. The program will print at some point in the output a list of labels that looks like this :
 ```
 --- Keys encountered in icmtests:
 [
@@ -67,7 +88,7 @@ to generate this file. If you have your own dataset with infusion recordings of 
   "Transition"
 ]
 ```
-We will use these labels in a moment. Once this extraction is done, you can explore the infusion dataset manually with python like that :
+We will use these labels for pulse segmentation. Once this extraction is done, you can explore the infusion dataset manually with python like that :
 ```py 
 >>> from revert import infusion
 >>> db = infusion.Dataset("full")  # Dataset instance
@@ -80,11 +101,33 @@ And finally you can segment pulses, using this command :
 ```
 python extract_pulses.py full Baseline
 ```
-This will create a file `baseline-full.pt` containing pulses marked with `Baseline` label. If you want a file containing pulses marked with `Plateau` label, replace the argument `Baseline` by `Plateau`, you can give any label that appears in the list `Keys encountered in icmtests` that was printed earlier during timestamps extraction. If you omit this argument, default is `Baseline`. The output file `{label}-full.pt` is commonly used for deep learning algorithms as explained in Deep Learning Algorithm section of this Readme.
+This will create a file `baseline-full.pt` containing pulses marked with `Baseline` label. If you want a file containing pulses marked with `Plateau` label, replace the argument `Baseline` by `Plateau`, you can give any label that appears in the list `Keys encountered in icmtests` that we encountered earlier during timestamps extraction. If you omit this argument, default is `Baseline`. You shall get the following in your terminal :
+```
+No events metadata found: /.../infusion_datasets/results-full.json
+Run scripts-infusion/extract_results.py
+model = Id
+filtering files with 'Baseline' timestamps
+extracting pulses from 2312 recordings
+100%|██████████████████████████████████████████████████████████████████| 2312/2312 [05:33<00:00,  6.93it/s]
+saving output as '/.../infusion_datasets/baseline-full.pt'
+  + masks	: [1742, 64, 128] tensor
+  + pulses	: [1742, 64, 128] tensor
+  + means	: [1742, 64] tensor
+  + slopes	: [1742, 64] tensor
+  + keys	: 1742 list string
+extracted 64 pulses from 1742 recordings
+  - 7 bad Y-quantizations encountered
+  - 547 low amplitudes encountered
+  - 16 errors encountered
+
+```
+The output file `{label}-full.pt` is meant to be loaded in python with `torch` like this :
+```
+dataset = torch.load("/.../infusion_datasets/Baseline.pt")
+```
+After that, `dataset` is a dictionnary with the keys just listed above. `dataset['pulses']` is a tensor such that `dataset['pulses'][i,j]` is the j-th pulse of the i-th patient encoded as a recording of length 128 hundredths of a second. As different pulses in the original recording have different lengths, segmented pulses are padded with their final values to reach a length of 128. Distinction between real part and padding part is encoded in `dataset['masks']`. Pulses are slightly different from their original shapes to make the dataset more homegenous : each of them has been soustracted its mean value and mean slope and those values are stored in `dataset['means']` and `dataset['slopes']`. `dataset['keys']` identifies each patient by a character string.
 
 ## PCMRI exams
-
-PCMRI exams
 
 The `Dataset` constructor accepts relative paths w.r.t. the `$PCMRI_DATASETS` environment variable. 
 
@@ -97,23 +140,4 @@ See help for the `pcmri.Dataset` and `pcmri.File` for more information, or have 
 
 # Deep Learning Algorithms
 
-# Blood and Cerebrospinal Fluid Dynamics
-
-Intracranial pressure (ICP) shows a pulsatile dynamic due
-to cardiac excitations, inducing periodic brain expansions 
-inside an inextensible cranial bone. Cerebrospinal fluid (CSF), 
-bathing the brain and spine, is periodically flushed in and out
-to the softer spinal sac through the occipital 
-foramen and cervical vertebras 
-to accomodate for blood volume changes. 
-
-Normal pressure hydrocephalus (NPH) is a CSF formation and absorption 
-disorder that causes gait and other cognitive impairments in the 
-elderly population. Believed to be largely misdiagnosed as Alzheimer, 
-NPH is a _reversible dementia_ as symptoms can sometimes
-quickly disappear by shunt drainage. Improving practice in NPH diagnosis 
-and gaining finer characterisations of CSF disorders is the goal of the 
-revert project. 
-
-<img alt="brain PCMRI and infusion exams" height="300px"
-    src="img/infusionPCMRI.png"> 
+Revert includes a library that is a layer on top of torch. It enables the conceptions of many architectures with very simple descriptions in terms of `Pipe`s that chain together modules of your choice like neural networks, concatenating modules, splitting modules, etc.
