@@ -25,19 +25,12 @@ def getData(stdev) :
 
     Nc = 5 
 
-    # stack the two desired channels
-    # flows1 = flows[:, 1]
-    # flows2 = flows[:, 3]
-    # flows = torch.stack((flows1, flows2), dim=1)
-
-    flows1 = flows[:, 0]
-    flows15 = flows[:, 1]
+    flows0 = flows[:, 0]
+    flows1 = flows[:, 1]
     flows2 = flows[:, 2]
-    flows25 = flows[:, 3]
-    flows3 = flows[:, 4]
-    flows = torch.stack((flows1, flows15, flows2, flows25, flows3), dim=1) # ça marche
-    flows = flows[:, :5]  # ça marche pas
-
+    flows3 = flows[:, 3]
+    flows4 = flows[:, 4]
+    flows = torch.stack((flows0, flows1, flows2, flows3, flows4), dim=1)
 
     x = resample(64*Nc)(flows.flatten(1))
     x = x.view([len(flows), Nc, 64])
@@ -52,15 +45,13 @@ def getData(stdev) :
     data_dataset = TensorDataset(shifted, y)
     data_loader = DataLoader(data_dataset, shuffle=True, batch_size=1)
     
-    # stack the two desired channels
-    flows1 = val_flows[:, 0]
-    flows15 = val_flows[:, 1]
+    # stack desired channels
+    flows0 = val_flows[:, 0]
+    flows1 = val_flows[:, 1]
     flows2 = val_flows[:, 2]
-    flows25 = val_flows[:, 3]
-    flows3 = val_flows[:, 4]
-    val_flows = torch.stack((flows1, flows15, flows2, flows25, flows3), dim=1)
-    # val_flows = val_flows[:, 5]
-
+    flows3 = val_flows[:, 3]
+    flows4 = val_flows[:, 4]
+    val_flows = torch.stack((flows0, flows1, flows2, flows3, flows4), dim=1)
     
 
     x = resample(64*Nc)(val_flows.flatten(1))
@@ -109,14 +100,12 @@ if args.config == None :
                 [1, 1],
                 [1]]
 
-
     head = ConvNet(layers_conv, activation=torch.nn.ReLU()) 
     head = ConvNet(layers_conv) 
 
     # convnet = Pipe(model.freeze(), head, NLLLoss())
-    convnet = Pipe(base, head, NLLLoss())
-
-    # convnet = Pipe(base, head, View([dim_task]), SoftMin(temp=0.1))
+    # convnet = Pipe(base, head, NLLLoss())
+    convnet = Pipe(base, head, View([dim_task]), SoftMin(temp=0.1))
 
     print(convnet)
 
@@ -154,7 +143,7 @@ def main(defaults=None, stdev=0.2):
     lr    = ExponentialLR(optim, gamma=defaults['gamma'])
            
     # training phase
-    convnet.fit(dataLoad, optim, lr, epochs=defaults['epochs'], tag="Loss", val=valLoad, unfrezze=5)
+    convnet.fit(dataLoad, optim, lr, epochs=defaults['epochs'], tag="Loss", val=valLoad)
     free(optim, lr)
      
     if isinstance(convnet.writer, dict) :    
@@ -183,8 +172,8 @@ def with_toml() :
             head = ConvNet(mod["layers"]["head"])
             
             global convnet
-            convnet = Pipe(base, head, NLLLoss())
-            # convnet = Pipe(base, head, View([33]), SoftMin(temp=0.1))
+            # convnet = Pipe(base, head, NLLLoss())
+            convnet = Pipe(base, head, View([33]), SoftMin(temp=0.1))
 
 
             @convnet.epoch
@@ -277,7 +266,6 @@ def with_toml() :
                         not_real += 1
                 convnet.write(f"Loss/Accuracy+-5", 100 * real / (real+not_real) , e)
 
-
             @convnet.epoch
             def write_accuracy_qui(tag, x, e) :
 
@@ -292,20 +280,6 @@ def with_toml() :
                     else :
                         not_real += 1
                 convnet.write(f"Loss/Accuracy+-10", 100 * real / (real+not_real) , e)
-
-            # @convnet.epoch
-            # def plot_may_guass(tag, x, e) :
-            #     randomlist = random.sample(range(0, 150), 2)
-            #     label = range(0,33)
-            #     for i, x in enumerate(x["val"]):
-            #         if i in randomlist :
-            #             output = convnet(x[0]).view([33])
-            #             # output = torch.exp(output)
-            #             expected_label = x[1]
-            #             plt.plot(label, output)
-            #             plt.title("Expected label : " + str(expected_label))
-            #             plt.savefig("gauss?" + str(e) +  str(i))
-            #             plt.cla()
 
             @convnet.epoch
             def plot_may_guass_best(tag, x, e) :
@@ -450,20 +424,6 @@ def write_accuracy_qui(tag, x, e) :
             not_real += 1
     convnet.write(f"Loss/Accuracy+-10", 100 * real / (real+not_real) , e)
 
-# @convnet.epoch
-# def plot_may_guass(tag, x, e) :
-#     randomlist = random.sample(range(0, 150), 2)
-#     label = range(0,33)
-#     for i, x in enumerate(x["val"]):
-#         if i in randomlist :
-#             output = convnet(x[0]).view([33])
-#             # output = torch.exp(output)
-#             expected_label = x[1]
-#             plt.plot(label, output)
-#             plt.title("Expected label : " + str(expected_label))
-#             plt.savefig("gauss?" + str(e) +  str(i))
-#             plt.cla()
-
 @convnet.epoch
 def plot_may_guass_best(tag, x, e) :
     randomlist = random.sample(range(0, 150), 2)
@@ -492,10 +452,7 @@ def write_validation(tag, x, e) :
         convnet.write(f"Loss/Validation", l , i*(e+1))
         l = 0
 
-
-
 if __name__ == "__main__":
-    #print(f'\convnet:\n {convnet}')
     if args.config != None : 
         with_toml()
     else :
