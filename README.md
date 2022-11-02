@@ -70,7 +70,7 @@ export INFUSION_DATASETS="/.../infusion_datasets"
 The `INFUSION_DATASETS` variable must target the parent directory of the directory containing hdf5 files.
 Some important pieces of code are intended to be run just once, e.g to transform the dataset or to extract segmented pulses from the recordings or to extract timestamps and regression results from XML files contained in the HDF5s to more convenients formats such as JSON or CSV. 
 
-To segment pulses, you can use `extract_pulses.py` scripts in `scripts_infusion` directory but it uses `infusion.Dataset` class. This latter will look for timestamps in a file called `periods-{dbname}.json` and you might want to run first:
+To segment pulses, you can use `extract_pulses.py` script in `scripts_infusion` directory but it uses `infusion.Dataset` class. This latter will look for timestamps in a file called `periods-{dbname}.json` and you might want to run first:
 ```
 cd scripts-infusion
 python extract_timestamps.py full
@@ -123,21 +123,66 @@ extracted 64 pulses from 1742 recordings
 ```
 The output file `{label}-full.pt` is meant to be loaded in python with `torch` like this :
 ```
-dataset = torch.load("/.../infusion_datasets/Baseline.pt")
+dataset = torch.load("/.../infusion_datasets/baseline-full.pt")
 ```
 After that, `dataset` is a dictionnary with the keys just listed above. `dataset['pulses']` is a tensor such that `dataset['pulses'][i,j]` is the j-th pulse of the i-th patient encoded as a recording of length 128 hundredths of a second. As different pulses in the original recording have different lengths, segmented pulses are padded with their final values to reach a length of 128. Distinction between real part and padding part is encoded in `dataset['masks']`. Pulses are slightly different from their original shapes to make the dataset more homegenous : each of them has been soustracted its mean value and mean slope and those values are stored in `dataset['means']` and `dataset['slopes']`. `dataset['keys']` identifies each patient by a character string.
 
 ## PCMRI exams
 
-The `Dataset` constructor accepts relative paths w.r.t. the `$PCMRI_DATASETS` environment variable. 
+For PCMRI exams, things are quite similar and you might want to export this environment variable :
+
+```
+export PCMRI_DATASETS="/.../pcmri_datasets"
+```
+The folder it points to should contains at least two things : a `channel.csv` file that goes along PCMRI exams and the folder containing the said PCMRI exams. We suppose that the latter is named `full`. 
+
+For information, you can use the `Dataset` class to explore PCMRI exams. The `Dataset` constructor accepts relative paths w.r.t. the `$PCMRI_DATASETS` environment variable. 
 
 ```py
 >>> from revert import pcmri
 >>> db = pcmri.Dataset("full")     # Dataset instance
 >>> file = db.get(0)               # File instance
 ```
-See help for the `pcmri.Dataset` and `pcmri.File` for more information, or have a look at the source in the [revert/pcmri](revert/pcmri) directory.
+See help for the `pcmri.Dataset` and `pcmri.File` for more information, or have a look at the source in the [revert/pcmri](revert/pcmri) directory. But we won't use it.
+
+To perform machine learning algorithms on PCMRI exams, we rather convert them to a torch Tensor using a script in `scripts-pcmri` and then copy it to the folder pointed to by the environment variable `PCMRI_DATASETS` :
+
+```
+cd script_pcmri
+python pcmri_to_tensor.py --torch
+cp pcmri_tensor.pt $PCMRI_DATASETS/full.pt
+```
+
+Now, you can load PCMRI exams by loading `full.pt` with torch like this :
+```
+dataset = torch.load("/.../pcmri_datasets/full.pt")
+```
+
 
 # Deep Learning Algorithms
 
-Revert includes a library that is a layer on top of torch. It enables the conceptions of many architectures with very simple descriptions in terms of `Pipe`s that chain together modules of your choice like neural networks, concatenating modules, splitting modules, etc.
+Revert includes a library that is a layer on top of torch. It enables the conceptions of many architectures with very simple descriptions in terms of `Pipe`s that chain together modules of your choice like neural networks, concatenating modules, splitting modules, etc. Look at the source files in `/.../revert/models` for more information. The parent class of those modules is in `module.py`.
+
+To perform tasks like diagnosis, you shall check the folder `livrables`. The file `liv.py` contains the following functions ("BT" means BarlowTwins) :
+
+```
+makeICP_BT
+trainICP_BT
+getLatentVectorsICP
+makeMRI_BT
+trainMRI_BT
+getLatentVectorsMRI
+makeHead
+trainHead
+predictICP
+predictMRI
+predictICP_MRI
+```
+
+together with functions showing how to use them :
+
+```
+mainICP
+mainMRI
+mainICP_MRI
+```
