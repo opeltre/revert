@@ -10,13 +10,13 @@ from torch import nn
 from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import ExponentialLR
 
-dx  = 128
-dy  = 8
+dx  = 64
+dy  = 16
 dz  = 64
 TwinType = VICReg
 TwinArgs = [(1, 1, .1)]
 
-args = cli.parse_args(name=f'{TwinType.__name__}-{dx}:{dy}:{dz}',
+args = cli.parse_args(name=f'{TwinType.__name__}-{dx}:{dy}',
                       datatype='infusion',
                       data='baseline-full.pt',
                       dirname=f'twins')
@@ -25,9 +25,10 @@ args = cli.parse_args(name=f'{TwinType.__name__}-{dx}:{dy}:{dz}',
 
 downsample = nn.AvgPool1d(128 // dx)
 
-model_layers = [[1, 64, dy],
-               [dx, 8, 1],
-               [8,  8]]
+model_layers = [[1, 64, 32, dy],
+               [dx, 16, 4,  1],
+               [4,  4,  4],
+               [1,  4,  1]]
 
 head_layers = [[dy, 32, dz],
                [1,  1,  1],
@@ -36,7 +37,8 @@ head_layers = [[dy, 32, dz],
 model   = ConvNet(model_layers) @ downsample
 head    = View([dz]) @ ConvNet(head_layers)
 
-twins = TwinType(head @ model, *TwinArgs)
+twins = TwinType(View([dy]) @ model, *TwinArgs)
+#twins = TwinType(head @ model, *TwinArgs)
 
 #========= Writer ===========================
 
@@ -75,10 +77,9 @@ twins.write_dict({"model"   : repr(model),
 t_comp = noise(0.05) @ vshift(0.5) @ scale(0.2)
 t_comp.__name__ = "compose"
 params = [
-        {'transforms': [noise(0.1)],    'epochs': 10, 'lr': 1e-4},
-        {'transforms': [vshift(0.5)],   'epochs': 10, 'lr': 1e-4},
-        {'transforms': [scale(0.3)],    'epochs': 10, 'lr': 1e-4},
-        {'transforms': [t_comp],        'epochs': 30, 'lr': 1e-4}
+        {'transforms': [noise(.05), vshift(.5), scale(.3), t_comp], 'epochs': 4, 'lr': 1e-5},
+        {'transforms': [noise(.05), vshift(.5), scale(.3), t_comp], 'epochs': 4, 'lr': 1e-5},
+        {'epochs': 5, 'lr': 1e-5}
 ]
 
 def main (params, defaults=None):
@@ -125,7 +126,7 @@ def shuffle (dim, tensor):
     sigma = torch.randperm(tensor.shape[dim], device=tensor.device)
     return tensor.index_select(dim, sigma)
 
-def getData (path, ratio=.7, clean=False):
+def getData (path, ratio=.8, clean=False):
     if clean:
         full = torch.load(path)["pulses"]
     else:
@@ -149,12 +150,15 @@ def batch (n_batch, xs):
 
 def augmentPairs (data, transforms, n_batch=128, n_it=1250, val=None, device='cuda', **kws):
     x  = shuffle(0, data.view([-1, 128]))[:n_it * n_batch]
-    xs = torch.cat([t.pair(x, 1) for t in transforms], 1)
+    xs = torch.cat([t.pair(x, 1) for t in transforms], 0)
+    xs = shuffle(0, xs)
     xs = batch(n_batch, xs).to(device)
     if isinstance(val, type(None)):
         return xs
     x_val = augmentPairs(val,  transforms, n_batch, n_it, **kws)
-    return xs, x_val.view([-1, 2, 128])
+    x_val = x_val.view([-1, 2, 128])
+    print('data shapes:', xs.shape, x_val.shape)
+    return xs, x_val
             
 #--- Real pairs ---
 

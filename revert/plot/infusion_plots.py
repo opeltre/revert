@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+import torch
 from math import ceil
 
 def style(name='seaborn'):
@@ -31,7 +32,7 @@ def grid (traces, shape=tuple(), title=None, titles=None, c=None, lw=1):
 
 #--- KMeans plots 
 
-def cluster_grid (km, x, y=None, P=12, shape=(4, 4), avg=False, title="Cluster grid"):
+def kmeans_grid (km, x, y=None, P=12, shape=(4, 4), avg=False, title="Cluster grid"):
     if isinstance(y, type(None)): y = x
     ids = km.nearest(P, y)
     nearest = [x.index_select(0, js).cpu() for js in ids]
@@ -42,6 +43,19 @@ def cluster_grid (km, x, y=None, P=12, shape=(4, 4), avg=False, title="Cluster g
                     for i, mi in enumerate(masses)]
     fig = grid(traces, shape, title=title, titles=titles)
     return fig
+
+def cluster_grid (x, z, P=64, title='Cluster grid'):
+    n_clusters = int(z.max())
+    if not isinstance(z, torch.Tensor):
+        z = torch.tensor(z)
+    idx = [(z == i).nonzero().flatten() for i in range(n_clusters)]
+    clusters = [x[i] for i in idx]
+    traces = [xi[:P].T for xi in clusters]
+    shape  = (4, ceil(n_clusters / 4))
+    titles = [f'[{i}]    mass {ci.shape[0]}' for i, ci in enumerate(clusters)]
+    fig = grid(traces, shape, title=title, titles=titles)
+    return fig
+
 
 def cluster(km, i, x, y=None, P=64, shape=tuple(), **kws):
     if isinstance(y, type(None)): y = x

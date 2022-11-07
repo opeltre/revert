@@ -11,13 +11,16 @@ parser = cli.arg_parser()
 parser.add_argument('--k', '-k', type=int, metavar='number of clusters')
 parser.add_argument('--col', '-C', type=int, metavar='grid columns')
 
-defaults = dict(input='../twins/VICReg-64:8:64-may12-1.pt',
+defaults = dict(input='../twins/VICReg-64:16-nov3-1.pt',
                 output='KMeans:{k} @ {input}', 
                 datatype='infusion', 
-                data='baseline-no_shunt.pt',
-                k=16,
-                col=4,
+                data='baseline-full.pt',
+                k=64,
+                col=8,
+                dy=16,
                 dirname='kmeans')
+
+rp.plt.style.use('seaborn')
 
 def setArgs(args):
     name = os.path.basename(args.input).replace('.pt', '')
@@ -34,7 +37,7 @@ km.writer = SummaryWriter(args.writer)
 
 #--- load model state
 twins = Module.load(args.input)
-model = Pipe(*twins.model.modules[:2], View([8]))
+model = twins.model
 model.cuda()
 
 #--- load pulses
@@ -42,17 +45,14 @@ d = torch.load(args.data)
 x = d['pulses'].view([-1, 128]).cuda()
 
 @km.episode
-def cluster_grid(tag, data):
+def cluster_grid(tag, data, P=6):
     y = model(x)
-    km.sort(y)
-    near = km.nearest(12, y)
-    xs = [x[idx] for idx in near]
-    fig = rp.cluster_grid(km, x, y, shape=args.shape)
+    fig = rp.kmeans_grid(km, x, y, P=P, shape=args.shape)
     km.writer.add_figure("Clusters", fig)
 
 @km.episode
 def cluster_xcorr(tag, data):
-    ys = model(x).view([len(d['pulses']), -1, 8])
+    ys = model(x).view([len(d['pulses']), -1, args.dy])
     p = torch.stack([km.counts(yi) / yi.shape[0] for yi in ys]).cpu()
     print(p.shape)
     C = cross_correlation(p, p)

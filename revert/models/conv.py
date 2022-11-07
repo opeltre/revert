@@ -22,11 +22,12 @@ class ConvNet(Module):
         """
         Create model with given layer parameters.
 
-        The 'layers' argument is either a triplet [C, N, W] or
-        quadruplet [C, N, W, S] of lists where:
+        The 'layers' argument is either a tuple (C, N, W, G, S)
+        with G, S optional of lists where:
         - `N[i]` is the number of time points on layer i
         - `C[i]` is the number of channels on layer i
         - `W[i]` is the width of convolution kernels on layer i (i < depth)
+        - `G[i]` is the number of groups on layer i (i < depth)
         - `S[i]` is the stride applied on layer i (i < depth)
 
         A pooling or upsampling layer is applied between layers i and (i + 1)
@@ -40,16 +41,19 @@ class ConvNet(Module):
         self.pool = nn.MaxPool1d if pool == 'max' else nn.AvgPool1d
         self.data = dict(layers=layers, pool=pool)
 
-        if len(layers) == 4:
-            c, n, w, s = layers
-        else:
-            c, n, w = layers
+        if len(layers) == 5:
+            c, n, w, g, s = layers
+        elif len(layers) == 4:
+            c, n, w, g = layers
             s = [1] * len(w)
-
+        elif len(layers) == 3:
+            c, n, w = layers
+            g, s = [1] * len(w), [1] * len(w) 
+        
         i, acts = 0, activation
-        for n0, c0, w0, s0, n1, c1 in zip(n[:-1], c[:-1], w, s, n[1:], c[1:]):
+        for n0, c0, w0, g0, s0, n1, c1 in zip(n[:-1], c[:-1], w, g, s, n[1:], c[1:]):
 
-            conv = Conv1d(c0, c1, w0, s0)
+            conv = Conv1d(c0, c1, w0, s0, groups=g0)
             setattr(self, f'conv{i}', conv)
 
             act = acts[i] if isinstance(acts, list) else acts
