@@ -1,5 +1,6 @@
 torch
 torchvision
+scikit-learn
 tensorboard
 matplotlib
 tqdm
