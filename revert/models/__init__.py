@@ -1,5 +1,6 @@
 from .neural_decomposition import ND
 from .linear        import Linear, Affine
+from .gaussian      import GaussianMixture, SinkhornKnopp
 from .conv          import ConvNet
 from .view          import View
 from .softmin       import SoftMin
