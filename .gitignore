@@ -9,6 +9,8 @@ notebooks
 *.state
 **.st
 **.log
+*.png
+*.egg-info
 
 runs
 assets
