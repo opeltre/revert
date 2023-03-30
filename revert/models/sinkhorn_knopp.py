@@ -40,17 +40,19 @@ class SinkhornKnopp(Module):
         if isinstance(B, type(None)): B = torch.ones(M) / M
 
         #--- Gibbs density
-        cdist /= cdist.std()
-        cdist -= cdist.min() 
-        C = cdist ** self.p if not self.p == 1 else cdist
+        C = (cdist - cdist.min()) / (cdist.std())
+        C = C ** self.p if not self.p == 1 else C
         Q = torch.exp(- C / temp)
         Q = Q / Q.sum()
 
         #--- Sinkhorn-Knopp --- 
-        T = Q 
-        for i in range(n_it):
-            dB = B / T.sum([0])
-            T *= dB
-            dA = A / T.sum([1])
-            T *= dA[:,None]
+        with torch.no_grad():
+            T = 0. + Q.detach()
+            U, V = torch.ones(N), torch.ones(M)
+            for i in range(n_it):
+                V *= (B / T.sum([0]))
+                T = U[:,None] * Q * V
+                U *= (A / T.sum([1]))
+                T = U[:,None] * Q * V       
         return T
+        

@@ -19,7 +19,7 @@ class Module (nn.Module):
 
         f.loss : (y, *tgts) -> float
 
-    will inherit a working fit method that backpropagates its gradient
+    will inherit a `fit` method that backpropagates its gradient
     on a dataset d = (x, *tgts).
 
     The methods f.epoch and f.episode can be used as decorators to
@@ -47,7 +47,7 @@ class Module (nn.Module):
 
     def fit (self, dset, optim=None, lr=None, epochs=1, tag=None, val=None, **kws):
         """ 
-        Fit on a N_it x 2 x N_batch x N tensor.
+        Fit on a N_it x N_batch x N tensor.
 
         The iterable 'dset' should yield either tensor / tuple of tensor batches,
         see torch.utils.data.TensorDataset for instance.
@@ -87,7 +87,9 @@ class Module (nn.Module):
                     l = 0.
                 #--- backprop
                 loss.backward()
-                optim.step()
+                #--- (natural) gradient descent
+                self.natural_gradients()
+                optim.step() 
                 #--- iter callback
                 for cb in self.iter_callbacks: cb(tag, x, nit)
             #--- learning rate decay
@@ -104,6 +106,14 @@ class Module (nn.Module):
         self.free(data)
         return self
     
+    def natural_gradients(self):
+        """
+        Update gradients by cometric multiplication, if any.   
+        """
+        for p in self.parameters():
+            if "cometric" in dir(p) and p.grad is not None:
+                p.grad = p.cometric(p.grad)
+
     def iter(self, callback):
         """ 
         Run callback("tag", data, nit) after each batch iteration. 
@@ -311,7 +321,19 @@ class Prod (Module):
     
     def forward(self, x):
         return [mi(xi) for mi, xi in zip(self.modules, x)]
-        
+
+  
+class Map(Module):
+    """ 
+    Apply module along a list of inputs. 
+    """
+    def __init__(self, module):
+        super().__init__()
+        self.module = module
+    
+    def forward(self, x):
+        return [self.module(xi) for xi in x]
+    
 
 class Skip (Module):
     """ 
@@ -328,6 +350,9 @@ class Skip (Module):
 
 
 class Branch(Module):
+    """
+    Repeat input n times.
+    """
 
     def __init__(self, n):
         super().__init__()
@@ -335,7 +360,22 @@ class Branch(Module):
     
     def forward(self, x):
         return self.n * [x]
+
+
+class Slice (Module):
+    """ 
+    Cut input into specified slice.
+    """   
+    def __init__(self, slc, dim=None):
+        super().__init__()
+        self.dim = dim
+        self.slice = slc
     
+    def forward(self, x):
+        if self.dim is not None:
+            return (x.transpose(0, self.dim)[self.slice]
+                     .transpose(0, self.dim))
+        return x[self.slice]
 
 class Cut (Module):
     """
@@ -417,3 +457,14 @@ class Sum(Module):
 
     def forward(self, x):
         return x.sum(self.dim)
+    
+class Norm(Module):
+    """ 
+    p-Norm along specified dimensions.
+    """
+    def __init__(self, dim=-1, p=2):
+        self.dim = dim
+        self.p = p
+    
+    def forward(self, x):
+        return x.abs.pow(p).sum(self.dim).pow(1/p)

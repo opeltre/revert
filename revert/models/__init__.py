@@ -1,11 +1,15 @@
 from .neural_decomposition import ND
 from .linear        import Linear, Affine
-from .gaussian      import GaussianMixture, SinkhornKnopp
+from .spd           import SPD
+from .wavelet       import Wavelet, Heat
+from .jet           import Diff, Jet
+from .gaussian      import GaussianMixture
+from .sinkhorn_knopp import SinkhornKnopp
 from .conv          import ConvNet
 from .view          import View
 from .softmin       import SoftMin
 from .twins         import Twins, BarlowTwins, VICReg, cross_correlation
 from .wgan          import WGAN, WGANCritic, Lipschitz, Clipped
-from .module        import Module, Pipe, Prod, Stack, Cat, Cut, Sum, Mask, Branch
+from .module        import Module, Pipe, Prod, Map, Slice, Stack, Cat, Cut, Sum, Mask, Branch
 from .kmeans        import KMeans
 from .geometry      import tsne, mdse, pca
