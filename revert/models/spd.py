@@ -62,4 +62,3 @@ class SPD(Module):
         S = (S if isinstance(index, type(None)) 
                     else S[index])
         return torch.matmul(S, x.unsqueeze(-1)).squeeze(-1)
-        
