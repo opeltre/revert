@@ -40,14 +40,6 @@ class Jet(Module):
         self.rank = rank
         self.diff = Diff(self.dim)
         self.indices = self.compute_indices(self.dim, self.rank)
-
-    def graded(self):
-        begin = self.begin
-        slices = [slice(i, j) for i, j in zip(begin[:-1], begin[1:])]
-        return (Prod([Slice(slc, -1 -self.dim) for slc in slices])
-                @ Branch(len(slices))
-                @ self)
-    
     
     @classmethod
     def compute_indices(cls, dim, rank):
