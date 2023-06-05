@@ -1,5 +1,6 @@
 dist
 bib
+revert.egg-info
 
 notebooks/*
 notebooks
