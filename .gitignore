@@ -1,5 +1,7 @@
 dist
 bib
+runs
+datasets
 revert.egg-info
 
 notebooks/*
