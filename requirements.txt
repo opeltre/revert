@@ -6,3 +6,4 @@ matplotlib
 tqdm
 toml
 h5py
+pandas
