@@ -4,9 +4,8 @@ runs
 datasets
 revert.egg-info
 
-notebooks/*
-notebooks
 **.ipynb
+!notebooks/extract-pulses.ipynb
 
 *.pt
 *.state
