@@ -9,10 +9,6 @@ from .dataset import Dataset
 from revert import models
 from revert import transforms
 
-from revert.transforms import filter_spikes, bandpass, Troughs, diff
-from revert.transforms import segment, mask_center
-
-
 class ExtractPulses (models.Module):
 
     def __init__(self, Npulses=64, minutes=4, timestamp=None, fs=100, model=None):
@@ -97,7 +93,9 @@ class ExtractPulses (models.Module):
             self.print(data)
         if save is not None:
             print(f"saving output as '{save}'")
-            torch.save(data, f'{save}')        
+            torch.save(data, f'{save}')
+
+        return data       
 
     def print(self, data):
         """ 
@@ -106,7 +104,7 @@ class ExtractPulses (models.Module):
         names = ["masks", "pulses", "means", "slopes"]
         for n in names: 
             print(f"  + {n}\t: {list(data[n].shape)} tensor")
-        print(f"  + keys\t: {xs[0].shape[0]} list string")
+        print(f"  + keys\t: {len(data['keys'])} list string")
         print(f"extracted {self.Npulses} pulses from {len(data['keys'])} recordings")
         print(f"  - {len(data['y_quant'])} bad Y-quantizations encountered")
         print(f"  - {len(data['amp'])} low amplitudes encountered")
