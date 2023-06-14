@@ -82,7 +82,7 @@ class Dataset:
         """
         Return a pair `(keys, start)` of iterables. 
 
-        Every key is kept if only if the timestamp was found 
+        Every key is kept if and only if the timestamp was found 
         and there remains more than `dset.Npts` time points after
         the associated `start` index. 
 
