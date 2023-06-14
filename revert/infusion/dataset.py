@@ -9,12 +9,32 @@ PREFIX = (os.environ["INFUSION_DATASETS"]
             else os.getcwd())
 
 class Dataset:
+    """ 
+    Interface to HDF5 directories of continuous ICP recordings.
 
-    def __init__(self, path='2016'):
-        """ Provide a path to the dataset. """
+    Usage:
+        - access specific or random HDF5 files : `dset.get(pattern)`,
+        - yield ICP slices of constant length  : `iter(dataset)`,
+        - safe mapping/filtering of metadata   : `dset.map`, `dset.filter`.
+    """
+
+    def __init__(self, path='no_shunt', timestamp=None, minutes=4, fs=100):
+        """ 
+        Dataset reading ICP files from `path`. 
+
+        The directory path can be absolute or relative to `$INFUSION_DATASETS`.
+        If provided, `timestamp` and `minutes` are used by `iter(dset)` to 
+        yield adequate slices of the ICP signal, safely ignoring files with missing 
+        metadata.
+        """
         self.name = os.path.basename(path)
         self.path = (path if path[0] == "/"
                         else os.path.join(PREFIX, path))
+        #--- Set to 'Baseline', 'Plateau' or 'Transition'
+        self.timestamp = timestamp
+        self.fs = fs
+        self.Npts = int(minutes * 60 * fs)
+
         #--- Events data ---
         periods = os.path.join(
                 os.path.dirname(self.path),
@@ -36,20 +56,53 @@ class Dataset:
                 self.results = json.load(data)
         except:
             self.results = {}
-            print(f"No events metadata found: {results}\n"
+            print(f"No results metadata found: {results}\n"
                 + f"Run scripts-infusion/extract_results.py")
 
     def __iter__(self):
-        for f in self.ls():
-            file = self.get(f)
-            yield file
+        """ 
+        Yield ICP signal slices.
+
+        Returned tensors are of shape `dset.Npts`. 
+        """
+        #--- Yield ICP signal slices 
+        keys, start = self.items_start()
+        for k, i0 in zip(keys, start):
+            file = self.get(k)
+            try:
+                icp = file.icp(i0, self.Npts)
+                if icp.shape[0] != self.Npts:
+                    raise RuntimeError("not enough points")
+                yield icp
+            except Exception as e:
+                pass
             file.close()
+
+    def items_start(self):
+        """
+        Return a pair `(keys, start)` of iterables. 
+
+        Every key is kept if only if the timestamp was found 
+        and there remains more than `dset.Npts` time points after
+        the associated `start` index. 
+        """
+        #--- Filter files with timestamp if any 
+        ts = self.timestamp
+        if ts is not None:
+            keys = self.filter(lambda f: self.periods[f.key][ts])
+            evts = self.periods
+            start = [int(self.fs * (evts[k][ts][0] - evts[k]["start"])) for k in keys]
+        else: 
+            keys = self.ls()
+            start = [0] * len(keys)
+        return keys, start
+
+    def __len__(self):
+        return len(self.items_start()[1])
 
     def ls (self):
         """ List exam files in the dataset. """
         return os.listdir(self.path)
-        p = path if path[0] == "/" \
-                 else os.path.join(os.path.dirname(__file__), path)
 
     #--- File opening ---
 
