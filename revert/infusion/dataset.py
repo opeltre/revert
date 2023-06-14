@@ -61,9 +61,9 @@ class Dataset:
 
     def __iter__(self):
         """ 
-        Yield ICP signal slices.
+        Yield `(key, icp)` pairs of file keys and ICP signal slices.
 
-        Returned tensors are of shape `dset.Npts`. 
+        The `icp` tensor is of shape `dset.Npts`. 
         """
         #--- Yield ICP signal slices 
         keys, start = self.items_start()
@@ -73,7 +73,7 @@ class Dataset:
                 icp = file.icp(i0, self.Npts)
                 if icp.shape[0] != self.Npts:
                     raise RuntimeError("not enough points")
-                yield icp
+                yield k, icp
             except Exception as e:
                 pass
             file.close()
@@ -85,6 +85,8 @@ class Dataset:
         Every key is kept if only if the timestamp was found 
         and there remains more than `dset.Npts` time points after
         the associated `start` index. 
+
+        Override this method if working with different hdf5 metadata formats. 
         """
         #--- Filter files with timestamp if any 
         ts = self.timestamp
