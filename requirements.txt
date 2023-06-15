@@ -7,3 +7,4 @@ tqdm
 toml
 h5py
 pandas
+python-dotenv
