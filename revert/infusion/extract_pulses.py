@@ -13,6 +13,7 @@ class ExtractPulses (models.Module):
 
     def __init__(self, Npulses=64, minutes=4, timestamp=None, fs=100, model=None):
         # model variation losses
+        super().__init__()
         if model is not None:
             print(f"loading model from '{model}'")
             self.model = (models.Module.load(model) if model else lambda x: x)
@@ -20,7 +21,7 @@ class ExtractPulses (models.Module):
         self.loss_fn = mixed_loss(losses)
         # I/O shapes
         self.Npulses  = Npulses
-        self.Npts     = minutes * 60 * fs
+        self.Npts     = int(minutes * 60 * fs)
         # filters and peak detection 
         self.bandpass = transforms.bandpass(.6, 12, fs)
         self.argmin   = transforms.Troughs(self.Npts, 50)
@@ -33,12 +34,18 @@ class ExtractPulses (models.Module):
             return self.loss_fn(x)
         return torch.randn(x.shape[:-1])
     
+    def forward(self, icp):
+        pulses, masks, troughs = self.extract_pulses(icp)
+        segments = self.select_pulses(pulses, masks)
+        masks, pulses = segments[:2]
+        return pulses, masks
+
     def extract_pulses(self, icp):
         icp = transforms.filter_spikes(icp)[0]
         icp_filtered = self.bandpass(icp)
         troughs = self.argmin(icp_filtered)
         pulses, masks = transforms.segment(icp_filtered, troughs, 128)
-        return pulses, masks
+        return pulses, masks, troughs
     
     def center_pulses(self, pulses, masks):
         x, x_mean, x_slope = transforms.mask_center(pulses, masks, output='slopes')
@@ -66,7 +73,7 @@ class ExtractPulses (models.Module):
         for key, icp in tqdm.tqdm(dataset):
             keep = True
             try: 
-                pulses, masks = self.extract_pulses(icp)
+                pulses, masks, troughs = self.extract_pulses(icp)
                 if self.icp_quantization_y(icp) >= .099: 
                     bad["y_quant"].append(key)
                     keep = False

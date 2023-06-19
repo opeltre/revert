@@ -274,7 +274,7 @@ class Lipschitz (WGANCritic):
         Remarks:
         --------
         - Because both k(f) and W(f) are fixed by addition of constants, one can add
-        a constraint on the mean of f. Fixed to zero the sign of the critic can then be
+        a constraint on the mean of f. Fixed to zero, the sign of the critic can then be
         meaningful as a prediction.
 
         - Minimizing k(f)^2 can be viewed as a form of entropic constraint on f,

@@ -3,11 +3,12 @@ import torch.utils.data as data
 
 class AugmentLoader (data.DataLoader):
 
-    def __init__(self, dset, transforms, Nbatch=1, n=2, device='cpu', **kws):
+    def __init__(self, dset, transforms, Nbatch=1, n=2, device='cpu', stack=True, **kws):
         self.n_augment = n
         self.mix = None
         self.transforms = transforms
         self.device = 'cpu'
+        self.stack = stack
         kws['drop_last'] = True
         super().__init__(dset, Nbatch, collate_fn=self.augment, **kws)
     
@@ -18,7 +19,8 @@ class AugmentLoader (data.DataLoader):
     def augment(self, x):
         # First two dimensions
         Nbatch, n = len(x), self.n_augment
-        x = torch.stack(x)
+        if not isinstance(x, torch.Tensor):
+            x = torch.stack(x)
         # Mix transforms
         T = self.transforms
         mix = torch.ones(len(T)) if self.mix is None else self.mix
@@ -28,7 +30,8 @@ class AugmentLoader (data.DataLoader):
         x_t = []
         for t, i, j in zip(T, idx[:-1], idx[1:]):
             xi = x[i:j]
-            xi_t = torch.stack([xi, *[t(xi) for i in range(n - 1)]], 1)
+            collate = torch.stack if self.stack else torch.cat
+            xi_t = collate([xi, *[t(xi) for i in range(n - 1)]], 1)
             x_t.append(xi_t)
         # Concatenate and Shuffle
         x_t = torch.cat(x_t, 0)

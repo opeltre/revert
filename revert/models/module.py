@@ -229,7 +229,11 @@ class Module (nn.Module):
         for x in xs: del x
         torch.cuda.empty_cache()
 
+class Id(Module):
 
+    def forward(self, *args):
+        return args if len(args) > 1 else args[0]
+    
 class Pipe (Module):
     """ Composition of models, analogous to torch.nn.Sequential. """
 

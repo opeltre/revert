@@ -19,7 +19,7 @@ def segment(val, cuts, N=128, before=0):
                   .view([-1, N]))
     n_tgt = 1 + torch.arange(0, n_cut.shape[0])[:,None]
     mask  = (n_cut == n_tgt).long()
-    #--- return segment, mask length
+    #--- return segment, mask 
     return out, mask
 
 def mask_center(x, mask, output=None):
