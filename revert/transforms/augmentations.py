@@ -7,7 +7,7 @@ class AugmentLoader (data.DataLoader):
         self.n_augment = n
         self.mix = None
         self.transforms = transforms
-        self.device = 'cpu'
+        self.device = device
         self.stack = stack
         kws['drop_last'] = True
         super().__init__(dset, Nbatch, collate_fn=self.augment, **kws)
@@ -35,7 +35,7 @@ class AugmentLoader (data.DataLoader):
             x_t.append(xi_t)
         # Concatenate and Shuffle
         x_t = torch.cat(x_t, 0)
-        return x_t
+        return x_t.to(self.device)
     
     def shuffle(self, x):
         idx = torch.randperm(x.shape[0])
