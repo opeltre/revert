@@ -154,8 +154,12 @@ class Module (nn.Module):
 
     def write_to(self, path=None):
         """ Initialize tensorboard writer. """
-        if isinstance(path, str):
-            self.writer = SummaryWriter(path)
+        if not isinstance(path, str):
+            return self
+        if path[0] != '/' and 'REVERT_LOGS' in os.environ:
+            path = os.path.join(os.environ['REVERT_LOGS'], path)
+        self.writer = SummaryWriter(path)
+        return self
 
     def freeze (self): 
         """ Freeze parameters. """
@@ -218,6 +222,7 @@ class Module (nn.Module):
         if isinstance(self.writer, SummaryWriter):
             self.writer.close()
         # unregister callbacks
+        self.iter_callbacks = []
         self.epoch_callbacks = []
         self.episode_callbacks = []
         # save to $env/path
