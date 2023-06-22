@@ -338,12 +338,12 @@ class Skip (Module):
 
 class Branch(Module):
 
-    def __init__(self, n):
+    def __init__(self, n=2):
         super().__init__()
         self.n = n
     
     def forward(self, x):
-        return self.n * [x]
+        return tuple([x] * self.n)
     
 
 class Cut (Module):
