@@ -4,7 +4,7 @@ from torch.distributions.categorical import Categorical as prob
 import torch 
 import torch.nn as nn
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 
 from .module import Module
 
@@ -81,14 +81,18 @@ class KMeans(Module):
 
             centers -= centers.grad()
         """
-        if not self.centers.shape[-1] == xs[0].shape[-1] or\
+        nb = kws["n_batch"] if "n_batch" in kws else 256
+        if isinstance(xs, torch.Tensor):
+            dset = TensorDataset(xs)
+            loader = DataLoader(dset, shuffle=True, batch_size=nb)
+        if not self.centers.shape[-1] == xs.shape[-1] or\
                self.centers.norm() == 0:
-            self.init(xs.dataset[0] if isinstance(xs, DataLoader) else xs[0])
+            self.init(xs[:nb])
         if not "optim" in kws and not "lr" in kws:
             dim = self.centers.shape[-1]
             optim = SimpleEuler(self.parameters(), lr=float(self.k * dim))
             kws["optim"] = optim
-        return super().fit(xs, epochs=epochs, **kws)
+        return super().fit(loader, epochs=epochs, **kws)
 
     def nearest (self, n, x, pred=None):
         """ Return indices of nearest samples from cluster centers. """
