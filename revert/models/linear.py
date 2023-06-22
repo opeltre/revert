@@ -5,11 +5,12 @@ from .module import Module
 
 class Saxpy(Module):
 
-    def __init__(self, shape, bias=True, stdev=.1):
+    def __init__(self, shape, dim=-1, bias=True, stdev=.05):
         super().__init__()
         self.shape = shape
         w = 1 + stdev * torch.randn(shape)
         b = stdev * torch.randn(shape)
+        self.dim = dim
         self.register_parameter('weight', nn.Parameter(w))
         self.register_parameter('bias', nn.Parameter(b))
 
@@ -19,12 +20,19 @@ class Saxpy(Module):
         self.bias = nn.Parameter(bias)
 
     def forward(self, x):
-        return self.weight * x + self.bias
+        if self.dim == -1 or self.dim == x.dim():
+            return self.weight * x + self.bias
+        if self.dim < 0:
+            dlast = abs(self.dim) - 1
+        else: 
+            dlast = x.dim() - self.dim - len(self.shape)
+        slc = [slice(None), *([None] * dlast)]
+        return self.weight[slc] * x + self.bias[slc]
 
 
 class Affine(Module):
 
-    def __init__(self, d_in, d_out, dim=-1, bias=True):
+    def __init__(self, d_in, d_out, dim=-1, stdev=.05, bias=True):
         super().__init__()
         self.module = nn.Linear(d_in, d_out, bias)
         self.d_in  = d_in
@@ -32,6 +40,12 @@ class Affine(Module):
         self.dim = dim
         self.weight = self.module.weight
         self.bias   = self.module.bias
+        with torch.no_grad():
+            weight = self.weight * stdev / self.weight.std()
+            if self.bias is not None:
+                bias = self.bias * stdev / self.bias.std()
+        self.set(weight, bias)
+      
 
     @torch.no_grad()
     def set(self, weight, bias=None):
@@ -59,8 +73,8 @@ class Affine(Module):
 
 class Linear(Affine):
 
-    def __init__(self, d_in, d_out, dim=-1):
-        super().__init__(d_in, d_out, dim, False)
+    def __init__(self, d_in, d_out, dim=-1, stdev=.05):
+        super().__init__(d_in, d_out, dim, stdev, False)
 
     def __repr__(self):
         return f'Linear({self.d_in}, {self.d_out}, dim={self.dim})'
