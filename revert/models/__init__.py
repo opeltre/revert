@@ -1,6 +1,7 @@
 from .neural_decomposition import ND
-from .linear        import Linear, Affine
+from .linear        import Linear, Affine, Saxpy
 from .conv          import ConvNet
+from .resnet        import ResNet
 from .view          import View
 from .softmin       import SoftMin
 from .twins         import Twins, BarlowTwins, VICReg, cross_correlation
