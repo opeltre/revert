@@ -7,6 +7,8 @@ from torch import sigmoid, tanh
 from .module import Module, Pipe, Id
 from .linear import Saxpy
 
+import math 
+
 #tanh = nn.Tanh()
 
 class Conv1d(nn.Conv1d):
@@ -81,9 +83,20 @@ class ConvNet(Pipe):
         """ i-th Convolutional layer. """
         C = self.channels 
         w, s, g  = self.widths[i], self.strides[i], self.groups[i] 
-        Cin = C[i]      if Cin is None else Cin
+        Cin  = C[i]      if Cin is None else Cin
         Cout = C[i+1]   if Cout is None else Cout
-        return Conv1d(Cin, Cout, w, s, groups=g)
+        Lin, Lout = self.Npoints[i], self.Npoints[i+1]
+        if Lin >= Lout:
+            return Conv1d(Cin, Cout, w, s, groups=g)
+        #--- Deconv
+        s = Lout // Lin
+        pad = w - s // 2 if w > s else 0
+        pad_out = s - w + 2 * pad
+        print(pad, pad_out) 
+        return nn.ConvTranspose1d(Cin, Cout, w, s,
+                                  padding=pad,
+                                  output_padding=pad_out,
+                                  groups=g)
     
     def pool_layer(self, i):
         """ i-th Pooling layer. """
@@ -94,7 +107,8 @@ class ConvNet(Pipe):
         elif self.pool == 'avg' and ratio >= 1:
             return nn.AvgPool1d(ratio)
         elif ratio < 1:
-            return nn.Upsample(N[i+1], mode='linear', align_corners=False)
+            pass
+            #return nn.Upsample(N[i+1], mode='linear', align_corners=False)
     
     def activation_layer(self, i):
         """ i-th Activation layer. """
