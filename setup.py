@@ -18,5 +18,6 @@ setup(
                 'revert.plot',
                 'revert.transforms',
                 'revert.infusion',
-                'revert.pcmri']
+                'revert.pcmri',
+                'revert.cli']
 )

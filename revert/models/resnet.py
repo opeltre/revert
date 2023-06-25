@@ -36,7 +36,7 @@ class ResNet(ConvNet):
         Cin  = self.channels[i] + self.residues[i]
         Cout = self.residues[i+1]
         if Cout > 0:
-            return Linear(Cin, Cout, dim=-2)
+            return Linear(Cin, Cout, dim=-2, stdev=.5)
     
     def __repr__(self):
         return f'ResNet({self.layers}, {self.residues})'

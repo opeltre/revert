@@ -2,6 +2,7 @@ import argparse
 import datetime
 import os
 import toml
+import torch
 
 def args(**defaults):
     def decorator(main):
@@ -65,6 +66,12 @@ def try_envdir (name):
 def join_envdir (envname, path):
     """ Return $envname/path or $PWD/path """
     return os.path.join(try_envdir(envname), path)
+
+def randHex(size=3):
+    """ Random hexadecimal code """
+    ns = torch.randint(16, (size,))
+    hex = ''.join(str(i) for i in range(10)) + 'abcdef'
+    return ''.join(hex[i] for i in ns)
 
 def generate_filename(dirname, prefix='module', config=None, use_date=True):
     """
